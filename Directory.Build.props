@@ -30,7 +30,7 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <Features>strict</Features>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
-    <EnablePienAnalyzers Condition="'$(EnablePienAnalyzers)' == ''">false</EnablePienAnalyzers>
+    <EnablePienAnalyzers Condition="'$(EnablePienAnalyzers)' == ''">true</EnablePienAnalyzers>
     <Version>0.1.0</Version>
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
     <FileVersion>0.1.0.0</FileVersion>
