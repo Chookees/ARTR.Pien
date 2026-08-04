@@ -1,0 +1,71 @@
+<Project>
+  <PropertyGroup>
+    <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningLevel>9999</WarningLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Default</AnalysisMode>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true' or '$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(CI)' == 'true' or '$(GITHUB_ACTIONS)' == 'true'">true</RestoreLockedMode>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <Authors>ARTR</Authors>
+    <Company>ARTR</Company>
+    <Product>ARTR Pien</Product>
+    <Copyright>Copyright (c) ARTR</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/ARTR-Projects/Pien</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ARTR-Projects/Pien</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Features>strict</Features>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <EnablePienAnalyzers Condition="'$(EnablePienAnalyzers)' == ''">false</EnablePienAnalyzers>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <InformationalVersion>0.1.0</InformationalVersion>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsPienProductionProject)' == ''">
+    <IsPienProductionProject>false</IsPienProductionProject>
+    <IsPienProductionProject Condition="'$(MSBuildProjectName)' == 'ARTR.Pien.Core'">true</IsPienProductionProject>
+    <IsPienProductionProject Condition="'$(MSBuildProjectName)' == 'ARTR.Pien.Web'">true</IsPienProductionProject>
+    <IsPienProductionProject Condition="'$(MSBuildProjectName)' == 'ARTR.Pien.Checks'">true</IsPienProductionProject>
+    <IsPienProductionProject Condition="'$(MSBuildProjectName)' == 'ARTR.Pien.Engine'">true</IsPienProductionProject>
+    <IsPienProductionProject Condition="'$(MSBuildProjectName)' == 'ARTR.Pien.Reporting'">true</IsPienProductionProject>
+    <IsPienProductionProject Condition="'$(MSBuildProjectName)' == 'ARTR.Pien.Storage'">true</IsPienProductionProject>
+    <IsPienProductionProject Condition="'$(MSBuildProjectName)' == 'ARTR.Pien.Hosting'">true</IsPienProductionProject>
+    <IsPienProductionProject Condition="'$(MSBuildProjectName)' == 'ARTR.Pien.Cli'">true</IsPienProductionProject>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsPienProductionProject)' == 'true'">
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsPienProductionProject)' != 'true'">
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPienProductionProject)' == 'true'">
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(EnablePienAnalyzers)' == 'true' and '$(IsPienProductionProject)' == 'true'">
+    <ProjectReference Include="$(RepoRoot)src\ARTR.Pien.CodeAnalysis\ARTR.Pien.CodeAnalysis.csproj"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Analyzer" />
+  </ItemGroup>
+</Project>

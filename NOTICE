@@ -1,0 +1,25 @@
+ARTR Pien
+Copyright (c) ARTR
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full license text.
+
+This NOTICE file lists third-party software that may be included
+in binary distributions of ARTR Pien. License texts for redistributed
+components are available from their upstream projects and/or NuGet packages.
+
+Direct production dependencies (see docs/development/DependencyResearch.md):
+
+- System.CommandLine (MIT) — Microsoft
+- AngleSharp (MIT) — AngleSharp contributors
+- NJsonSchema (MIT) — Rico Suter / NJsonSchema contributors
+  - Transitive: Newtonsoft.Json (MIT)
+  - Transitive: Namotion.Reflection (MIT)
+- Microsoft.OpenApi (MIT) — Microsoft
+- Microsoft.OpenApi.YamlReader (MIT) — Microsoft
+  - Transitive: YamlDotNet (MIT) when present
+- Microsoft.Extensions.* hosting/logging/options/configuration packages (MIT) — Microsoft
+- Microsoft.SourceLink.GitHub (MIT) — Microsoft
+
+Development / test-only dependencies are documented in DependencyResearch.md
+and are not redistributed as part of the Pien runtime CLI package.

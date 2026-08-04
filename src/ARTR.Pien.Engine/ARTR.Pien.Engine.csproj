@@ -1,13 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ARTR.Pien.Engine</RootNamespace>
+    <Description>PIEN pipeline orchestration for ARTR Pien.</Description>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\ARTR.Pien.Core\ARTR.Pien.Core.csproj" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ARTR.Pien.UnitTests" />
+    <InternalsVisibleTo Include="ARTR.Pien.IntegrationTests" />
+  </ItemGroup>
 
 </Project>

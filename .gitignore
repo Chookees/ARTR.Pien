@@ -40,7 +40,9 @@ Thumbs.db
 .env
 .env.*
 !.env.example
-**/secrets/
+# Runtime secret stores only (do not ignore src/**/Secrets C# folders)
+**/.secrets/
+**/secret-store/
 *.pfx
 *.pem
 !**/testdata/**/*.pem

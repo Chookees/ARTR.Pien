@@ -1,14 +1,24 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ARTR.Pien.Checks</RootNamespace>
+    <Description>Built-in deterministic website and API checks for ARTR Pien.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NJsonSchema" />
+    <PackageReference Include="Microsoft.OpenApi" />
+    <PackageReference Include="Microsoft.OpenApi.YamlReader" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\ARTR.Pien.Core\ARTR.Pien.Core.csproj" />
     <ProjectReference Include="..\ARTR.Pien.Web\ARTR.Pien.Web.csproj" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ARTR.Pien.UnitTests" />
+  </ItemGroup>
 
 </Project>
