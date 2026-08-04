@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://artr.dev/schemas/pien.schema.json",
+  "title": "ARTR Pien configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "targets"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "profile": {
+      "type": "string",
+      "enum": ["quick", "standard", "deep", "api", "ci"]
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "url", "authorization"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "enum": ["website", "api"] },
+          "url": { "type": "string", "format": "uri" },
+          "authorization": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["confirmed"],
+            "properties": {
+              "confirmed": { "type": "boolean" },
+              "notes": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowPrivateNetworks": { "type": "boolean" },
+        "allowedHosts": { "type": "array", "items": { "type": "string" } },
+        "maxRedirects": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "userAgent": { "type": "string" }
+      }
+    },
+    "crawl": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxPages": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "maxDepth": { "type": "integer", "minimum": 0, "maximum": 50 },
+        "respectRobotsTxt": { "type": "boolean" },
+        "useSitemap": { "type": "boolean" },
+        "sameOriginOnly": { "type": "boolean" }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "array", "items": { "type": "string" } },
+        "disabled": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "failOn": {
+          "type": "string",
+          "enum": ["info", "low", "medium", "high", "critical"]
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "directory": { "type": "string" },
+        "formats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["console", "json", "sarif", "junit", "markdown", "html"]
+          }
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stateDirectory": { "type": "string" },
+        "retainRuns": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "watch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "intervalSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "webhookUrl": { "type": ["string", "null"] },
+        "webhookSecretReference": { "type": ["string", "null"] },
+        "required": { "type": "boolean" }
+      }
+    }
+  }
+}
