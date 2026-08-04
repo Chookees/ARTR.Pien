@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\ARTR.Pien.Core\ARTR.Pien.Core.csproj" />
+    <ProjectReference Include="..\ARTR.Pien.Engine\ARTR.Pien.Engine.csproj" />
+    <ProjectReference Include="..\ARTR.Pien.Web\ARTR.Pien.Web.csproj" />
+    <ProjectReference Include="..\ARTR.Pien.Checks\ARTR.Pien.Checks.csproj" />
+    <ProjectReference Include="..\ARTR.Pien.Reporting\ARTR.Pien.Reporting.csproj" />
+    <ProjectReference Include="..\ARTR.Pien.Storage\ARTR.Pien.Storage.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

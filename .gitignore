@@ -1,0 +1,49 @@
+# Local agent runtime artifacts
+/inDev/
+
+# Build
+**/bin/
+**/obj/
+**/[Bb]uild[Ll]og.*
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.DotSettings.user
+
+# Test / coverage
+**/TestResults/
+**/coverlet/
+**/coverage/
+**/coverage*.json
+**/coverage*.xml
+**/coverage*.cobertura.xml
+*.trx
+*.coverage
+*.coveragexml
+
+# Artifacts and local state
+/artifacts/
+.pien/
+*.nupkg
+*.snupkg
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*~
+
+# Secrets / env
+.env
+.env.*
+!.env.example
+**/secrets/
+*.pfx
+*.pem
+!**/testdata/**/*.pem
+
+# Benchmarks
+**/BenchmarkDotNet.Artifacts/
