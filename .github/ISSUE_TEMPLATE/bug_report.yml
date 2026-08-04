@@ -1,0 +1,19 @@
+name: Bug report
+description: Report a defect in ARTR Pien
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Steps against a local/authorized target only
+    validations:
+      required: true

@@ -1,0 +1,17 @@
+name: scheduled-security
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.302"
+      - run: dotnet restore ARTR.Pien.sln
+      - run: dotnet list ARTR.Pien.sln package --vulnerable --include-transitive

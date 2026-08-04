@@ -21,6 +21,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ARTR.Pien.Core\ARTR.Pien.Core.csproj" />
+    <ProjectReference Include="..\..\src\ARTR.Pien.Engine\ARTR.Pien.Engine.csproj" />
+    <ProjectReference Include="..\..\src\ARTR.Pien.Web\ARTR.Pien.Web.csproj" />
+    <ProjectReference Include="..\..\src\ARTR.Pien.Checks\ARTR.Pien.Checks.csproj" />
+    <ProjectReference Include="..\..\src\ARTR.Pien.Reporting\ARTR.Pien.Reporting.csproj" />
+    <ProjectReference Include="..\..\src\ARTR.Pien.Storage\ARTR.Pien.Storage.csproj" />
     <ProjectReference Include="..\..\src\ARTR.Pien.Hosting\ARTR.Pien.Hosting.csproj" />
   </ItemGroup>
 

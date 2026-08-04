@@ -1,5 +1,4 @@
 using System.Reflection;
-using NetArchTest.Rules;
 
 namespace ARTR.Pien.ArchitectureTests;
 
@@ -14,30 +13,54 @@ public sealed class DependencyRuleTests
     private static readonly Assembly Hosting = typeof(ARTR.Pien.Hosting.PienServiceCollectionExtensions).Assembly;
 
     [Fact]
-    public void Core_has_no_project_dependencies_on_other_pien_assemblies()
+    public void Core_references_no_other_pien_assemblies()
     {
-        var result = Types.InAssembly(Core)
-            .ShouldNot()
-            .HaveDependencyOnAny(
-                "ARTR.Pien.Engine",
-                "ARTR.Pien.Web",
-                "ARTR.Pien.Checks",
-                "ARTR.Pien.Reporting",
-                "ARTR.Pien.Storage",
-                "ARTR.Pien.Hosting",
-                "ARTR.Pien.Cli")
-            .GetResult();
-        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? []));
+        Assert.Empty(GetPienAssemblyReferences(Core));
     }
 
     [Fact]
-    public void Engine_depends_only_on_core()
+    public void Engine_references_only_core_among_pien_assemblies()
     {
-        var result = Types.InAssembly(Engine)
-            .ShouldNot()
-            .HaveDependencyOnAny("ARTR.Pien.Web", "ARTR.Pien.Checks", "ARTR.Pien.Cli", "ARTR.Pien.Hosting")
-            .GetResult();
-        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? []));
+        Assert.Equal(["ARTR.Pien.Core"], GetPienAssemblyReferences(Engine));
+    }
+
+    [Fact]
+    public void Web_references_only_core_among_pien_assemblies()
+    {
+        Assert.Equal(["ARTR.Pien.Core"], GetPienAssemblyReferences(Web));
+    }
+
+    [Fact]
+    public void Checks_project_declares_web_reference()
+    {
+        var refs = GetPienAssemblyReferences(Checks);
+        Assert.Contains("ARTR.Pien.Core", refs);
+        // Website checks currently use only Core contracts; OpenAPI/HTML helpers may pull Web types later.
+        // Enforce the intended project reference via csproj text.
+        var root = FindRepoRoot();
+        var csproj = File.ReadAllText(Path.Combine(root, "src", "ARTR.Pien.Checks", "ARTR.Pien.Checks.csproj"));
+        Assert.Contains("ARTR.Pien.Web.csproj", csproj, StringComparison.Ordinal);
+        Assert.DoesNotContain("ARTR.Pien.Cli", refs);
+    }
+
+    [Fact]
+    public void Reporting_and_storage_reference_only_core()
+    {
+        Assert.Equal(["ARTR.Pien.Core"], GetPienAssemblyReferences(Reporting));
+        Assert.Equal(["ARTR.Pien.Core"], GetPienAssemblyReferences(Storage));
+    }
+
+    [Fact]
+    public void Hosting_references_engine_web_checks_reporting_storage_core()
+    {
+        var refs = GetPienAssemblyReferences(Hosting);
+        Assert.Contains("ARTR.Pien.Core", refs);
+        Assert.Contains("ARTR.Pien.Engine", refs);
+        Assert.Contains("ARTR.Pien.Web", refs);
+        Assert.Contains("ARTR.Pien.Checks", refs);
+        Assert.Contains("ARTR.Pien.Reporting", refs);
+        Assert.Contains("ARTR.Pien.Storage", refs);
+        Assert.DoesNotContain("ARTR.Pien.Cli", refs);
     }
 
     [Fact]
@@ -52,6 +75,13 @@ public sealed class DependencyRuleTests
         Assert.False(File.Exists(Path.Combine(root, "Dockerfile")));
         Assert.False(Directory.Exists(Path.Combine(root, "docker")));
     }
+
+    private static string[] GetPienAssemblyReferences(Assembly assembly)
+        => assembly.GetReferencedAssemblies()
+            .Select(a => a.Name!)
+            .Where(n => n.StartsWith("ARTR.Pien.", StringComparison.Ordinal))
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToArray();
 
     private static string FindRepoRoot()
     {

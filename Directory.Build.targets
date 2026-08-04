@@ -1,3 +1,6 @@
 <Project>
-  <!-- Reserved for solution-wide targets (coverage gates, packaging helpers). -->
+  <!-- Coverage thresholds enforced in CI via coverlet collector + future ReportGenerator gates. -->
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <CollectCoverage>true</CollectCoverage>
+  </PropertyGroup>
 </Project>

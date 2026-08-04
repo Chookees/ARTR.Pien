@@ -1,0 +1,11 @@
+name: Feature request
+description: Propose an enhancement
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+    validations:
+      required: true

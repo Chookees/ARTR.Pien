@@ -22,7 +22,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ARTR.Pien.Cli\ARTR.Pien.Cli.csproj" />
     <ProjectReference Include="..\..\samples\ARTR.Pien.SampleSite\ARTR.Pien.SampleSite.csproj" />
-    <ProjectReference Include="..\..\samples\ARTR.Pien.SampleApi\ARTR.Pien.SampleApi.csproj" />
     <ProjectReference Include="..\ARTR.Pien.Testing\ARTR.Pien.Testing.csproj" />
   </ItemGroup>
 
