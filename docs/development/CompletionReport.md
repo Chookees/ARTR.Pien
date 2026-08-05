@@ -11,14 +11,16 @@
 | Project path | `C:\Users\artur\Desktop\projects\r\ARTR\Pien` |
 | Git root | `C:/Users/artur/Desktop/projects/r/ARTR/Pien` |
 | Branch | `main` |
-| HEAD (at report authoring) | `bf4a99dc877e25aabc49fa91b94ebe3fc6c3b35e` (`docs(analysis): document deferred PIEN0010-0012 analyzers`) |
+| HEAD | `95e9a2a9ea779d58059a058243ca1f0f24ecf7d7` (report commit; `main` pushed to `origin/main`) |
 | Product version | `0.1.0` (`Directory.Build.props`) |
 | SDK pin | `10.0.302` (`global.json`) |
+| Push | **success** — `git push origin main` → `d2eee96..95e9a2a  main -> main` |
 
 ## Recent meaningful commits
 
 | Hash | Subject |
 |------|---------|
+| `95e9a2a` | docs(release): add engineering completion report |
 | `bf4a99d` | docs(analysis): document deferred PIEN0010-0012 analyzers |
 | `c237902` | ci(release): expand Publish.ps1 for FD, RIDs, packs, checksums |
 | `ed24a49` | fix(checks): correct __Secure- attribute parsing and cover catalog branches |
