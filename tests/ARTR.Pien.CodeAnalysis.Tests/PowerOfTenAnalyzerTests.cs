@@ -1,6 +1,7 @@
+using ARTR.Pien.CodeAnalysis;
+
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
-using ARTR.Pien.CodeAnalysis;
 
 namespace ARTR.Pien.CodeAnalysis.Tests;
 

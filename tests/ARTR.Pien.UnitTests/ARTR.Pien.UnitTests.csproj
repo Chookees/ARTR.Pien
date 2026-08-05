@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\src\ARTR.Pien.Engine\ARTR.Pien.Engine.csproj" />
     <ProjectReference Include="..\..\src\ARTR.Pien.Reporting\ARTR.Pien.Reporting.csproj" />
     <ProjectReference Include="..\..\src\ARTR.Pien.Storage\ARTR.Pien.Storage.csproj" />
+    <ProjectReference Include="..\..\src\ARTR.Pien.Hosting\ARTR.Pien.Hosting.csproj" />
     <ProjectReference Include="..\ARTR.Pien.Testing\ARTR.Pien.Testing.csproj" />
   </ItemGroup>
 
