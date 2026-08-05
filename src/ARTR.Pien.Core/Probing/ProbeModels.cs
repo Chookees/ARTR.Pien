@@ -185,6 +185,21 @@ public sealed record InspectionEvidence
     /// <summary>Optional content fingerprint for change detection.</summary>
     public string? ContentFingerprint { get; init; }
 
+    /// <summary>Optional TLS probe result.</summary>
+    public Abstractions.TlsProbeResult? Tls { get; init; }
+
+    /// <summary>Crawled pages with optional probes.</summary>
+    public IReadOnlyList<CrawledPageEvidence> CrawledPages { get; init; } = [];
+
+    /// <summary>API case execution results.</summary>
+    public IReadOnlyList<ApiCaseExecutionResult> ApiCaseResults { get; init; } = [];
+
+    /// <summary>Working directory for resolving local schema/OpenAPI paths.</summary>
+    public string? WorkingDirectory { get; init; }
+
+    /// <summary>Optional baseline snapshot for change detection.</summary>
+    public Policy.Baseline? Baseline { get; init; }
+
     /// <summary>Additional non-secret notes.</summary>
     public IReadOnlyDictionary<string, string> Notes { get; init; } =
         new Dictionary<string, string>(StringComparer.Ordinal);
@@ -200,6 +215,8 @@ public sealed record InspectionEvidence
         ArgumentNullException.ThrowIfNull(evidence.Target);
         ArgumentNullException.ThrowIfNull(evidence.Probes);
         ArgumentNullException.ThrowIfNull(evidence.Notes);
+        ArgumentNullException.ThrowIfNull(evidence.CrawledPages);
+        ArgumentNullException.ThrowIfNull(evidence.ApiCaseResults);
         ScanTarget.Create(evidence.Target);
         return evidence;
     }

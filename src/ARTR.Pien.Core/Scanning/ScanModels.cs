@@ -48,6 +48,15 @@ public sealed record ScanTarget
     /// <summary>Authorization acknowledgement.</summary>
     public required TargetAuthorization Authorization { get; init; }
 
+    /// <summary>Optional request authentication (secret references only).</summary>
+    public Configuration.PienAuthenticationConfiguration? Authentication { get; init; }
+
+    /// <summary>Optional local OpenAPI document path.</summary>
+    public string? OpenApiDocument { get; init; }
+
+    /// <summary>Configured API cases for <see cref="ScanTargetKind.Api"/> targets.</summary>
+    public IReadOnlyList<Configuration.PienApiCaseConfiguration> ApiCases { get; init; } = [];
+
     /// <summary>
     /// Creates a validated scan target.
     /// </summary>
@@ -59,6 +68,7 @@ public sealed record ScanTarget
         ArgumentException.ThrowIfNullOrWhiteSpace(target.Id);
         ArgumentNullException.ThrowIfNull(target.BaseUrl);
         ArgumentNullException.ThrowIfNull(target.Authorization);
+        ArgumentNullException.ThrowIfNull(target.ApiCases);
 
         if (!target.BaseUrl.IsAbsoluteUri)
         {

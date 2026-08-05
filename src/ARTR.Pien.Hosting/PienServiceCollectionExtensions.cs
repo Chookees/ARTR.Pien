@@ -1,8 +1,10 @@
 using ARTR.Pien.Abstractions;
 using ARTR.Pien.Checks;
+using ARTR.Pien.Checks.Api;
 using ARTR.Pien.Checks.Website;
 using ARTR.Pien.Configuration;
 using ARTR.Pien.Engine;
+using ARTR.Pien.Hosting.Notifications;
 using ARTR.Pien.Hosting.Secrets;
 using ARTR.Pien.Reporting.Exporters;
 using ARTR.Pien.Secrets;
@@ -60,11 +62,29 @@ public static class PienServiceCollectionExtensions
         services.AddSingleton<IBaselineStore>(sp => sp.GetRequiredService<FileScanStore>());
         services.AddSingleton<IRunHistoryStore>(sp => sp.GetRequiredService<FileScanStore>());
         services.AddSingleton<ISecretResolver>(_ => new DefaultSecretResolver(options.WorkingDirectory));
+        if (!string.IsNullOrWhiteSpace(options.WebhookUrl))
+        {
+            services.AddSingleton<INotificationSender>(sp => new HmacWebhookNotificationSender(
+                options.WebhookUrl!,
+                options.WebhookSecretReference,
+                sp.GetRequiredService<ISecretResolver>()));
+        }
+
         services.AddSingleton<IPolicyEvaluator, PolicyEvaluator>();
         services.AddSingleton<IScoreCalculator, ScoreCalculator>();
         services.AddPienChecks();
         services.AddSingleton<ICheckCatalog>(sp => new CheckCatalog(sp.GetServices<ICheck>()));
-        services.AddSingleton<IScanEngine, ScanEngine>();
+        services.AddSingleton<IScanEngine>(sp => new ScanEngine(
+            sp.GetRequiredService<ISafeHttpTransport>(),
+            sp.GetRequiredService<ICheckCatalog>(),
+            sp.GetRequiredService<IPolicyEvaluator>(),
+            sp.GetRequiredService<IScoreCalculator>(),
+            sp.GetRequiredService<IClock>(),
+            sp.GetRequiredService<IScanStore>(),
+            sp.GetRequiredService<IBaselineStore>(),
+            sp.GetRequiredService<ICrawler>(),
+            sp.GetRequiredService<ITlsProbe>(),
+            sp.GetService<INotificationSender>()));
         services.AddSingleton<IReportExporter, JsonReportExporter>();
         services.AddSingleton<IReportExporter, ConsoleReportExporter>();
         services.AddSingleton<IReportExporter, SarifReportExporter>();
@@ -80,11 +100,20 @@ public static class PienServiceCollectionExtensions
     public static IServiceCollection AddPienChecks(this IServiceCollection services)
     {
         services.AddSingleton<ICheck, HttpAvailabilityCheck>();
+        services.AddSingleton<ICheck, HttpRedirectCheck>();
         services.AddSingleton<ICheck, SecurityHeadersCheck>();
         services.AddSingleton<ICheck, ContentSecurityPolicyCheck>();
         services.AddSingleton<ICheck, HtmlStructureCheck>();
         services.AddSingleton<ICheck, AccessibilityFundamentalsCheck>();
         services.AddSingleton<ICheck, CookieAttributeCheck>();
+        services.AddSingleton<ICheck, SeoFundamentalsCheck>();
+        services.AddSingleton<ICheck, LinkSafetyCheck>();
+        services.AddSingleton<ICheck, PerformanceBudgetCheck>();
+        services.AddSingleton<ICheck, TlsFundamentalsCheck>();
+        services.AddSingleton<ICheck, TlsExpirationCheck>();
+        services.AddSingleton<ICheck, ApiContractCheck>();
+        services.AddSingleton<ICheck, OpenApiDocumentCheck>();
+        services.AddSingleton<ICheck, BaselineChangeCheck>();
         return services;
     }
 }
@@ -111,4 +140,10 @@ public sealed class PienHostingOptions
 
     /// <summary>User-Agent.</summary>
     public string UserAgent { get; set; } = "ARTR-Pien/0.1 (+https://github.com/ARTR-Projects/Pien)";
+
+    /// <summary>Optional webhook URL.</summary>
+    public string? WebhookUrl { get; set; }
+
+    /// <summary>Optional webhook HMAC secret reference.</summary>
+    public string? WebhookSecretReference { get; set; }
 }

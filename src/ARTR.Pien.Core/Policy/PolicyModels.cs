@@ -34,6 +34,9 @@ public sealed record Policy
     public IReadOnlyDictionary<string, FindingSeverity> SeverityOverrides { get; init; } =
         new Dictionary<string, FindingSeverity>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Configured finding suppressions.</summary>
+    public IReadOnlyList<PolicySuppression> Suppressions { get; init; } = [];
+
     /// <summary>
     /// Creates a validated policy.
     /// </summary>
@@ -47,6 +50,7 @@ public sealed record Policy
         ArgumentNullException.ThrowIfNull(policy.EnabledCheckIds);
         ArgumentNullException.ThrowIfNull(policy.DisabledCheckIds);
         ArgumentNullException.ThrowIfNull(policy.SeverityOverrides);
+        ArgumentNullException.ThrowIfNull(policy.Suppressions);
         if (!Enum.IsDefined(policy.FailOnSeverityAtOrAbove))
         {
             throw new ArgumentException($"Unknown severity '{policy.FailOnSeverityAtOrAbove}'.", nameof(policy));
@@ -55,6 +59,19 @@ public sealed record Policy
         return policy with { Name = policy.Name.Trim() };
     }
 }
+
+/// <summary>
+/// A configured finding suppression rule.
+/// </summary>
+/// <param name="CheckId">Check identifier to suppress.</param>
+/// <param name="Fingerprint">Optional finding fingerprint filter.</param>
+/// <param name="Reason">Optional non-secret reason.</param>
+/// <param name="ExpiresAt">Optional expiry instant.</param>
+public sealed record PolicySuppression(
+    string CheckId,
+    string? Fingerprint = null,
+    string? Reason = null,
+    DateTimeOffset? ExpiresAt = null);
 
 /// <summary>
 /// Result of evaluating a policy against a set of findings.

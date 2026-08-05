@@ -259,8 +259,17 @@ public sealed record ScanEngineOptions
     /// <summary>Optional baseline id for comparison.</summary>
     public string? BaselineId { get; init; }
 
+    /// <summary>When true, compare findings against the baseline during the scan.</summary>
+    public bool CompareBaseline { get; init; }
+
     /// <summary>Network safety options.</summary>
     public NetworkSafetyOptions Network { get; init; } = new();
+
+    /// <summary>Optional notification configuration snapshot.</summary>
+    public Configuration.PienNotificationConfiguration? Notifications { get; init; }
+
+    /// <summary>Optional storage retention count.</summary>
+    public int RetainRuns { get; init; } = 50;
 }
 
 /// <summary>

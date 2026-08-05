@@ -56,6 +56,12 @@ public sealed class PienConfiguration
     /// <summary>Notification options.</summary>
     public PienNotificationConfiguration Notifications { get; set; } = new();
 
+    /// <summary>Baseline comparison options.</summary>
+    public PienBaselinesConfiguration Baselines { get; set; } = new();
+
+    /// <summary>Logging options.</summary>
+    public PienLoggingConfiguration Logging { get; set; } = new();
+
     /// <summary>Effective scan limits after merge.</summary>
     [JsonIgnore]
     public ScanLimits EffectiveLimits { get; set; } = ScanLimits.Default;
@@ -78,6 +84,15 @@ public sealed class PienTargetConfiguration
 
     /// <summary>Authorization block.</summary>
     public PienAuthorizationConfiguration Authorization { get; set; } = new();
+
+    /// <summary>Optional request authentication (secret references only).</summary>
+    public PienAuthenticationConfiguration? Authentication { get; set; }
+
+    /// <summary>Local OpenAPI 3.x document path (JSON/YAML).</summary>
+    public string? OpenApiDocument { get; set; }
+
+    /// <summary>Explicit API test cases.</summary>
+    public List<PienApiCaseConfiguration> ApiCases { get; set; } = [];
 }
 
 /// <summary>Authorization acknowledgement.</summary>
@@ -104,6 +119,12 @@ public sealed class PienNetworkConfiguration
 
     /// <summary>User-Agent header.</summary>
     public string UserAgent { get; set; } = "ARTR-Pien/0.1 (+https://github.com/ARTR-Projects/Pien)";
+
+    /// <summary>TCP/TLS connect timeout in seconds.</summary>
+    public int ConnectTimeoutSeconds { get; set; } = 10;
+
+    /// <summary>Per-request timeout in seconds.</summary>
+    public int RequestTimeoutSeconds { get; set; } = 30;
 }
 
 /// <summary>Crawl configuration.</summary>
@@ -123,6 +144,9 @@ public sealed class PienCrawlConfiguration
 
     /// <summary>Same-origin only.</summary>
     public bool SameOriginOnly { get; set; } = true;
+
+    /// <summary>Maximum links processed per page.</summary>
+    public int MaxLinksPerPage { get; set; } = 1_000;
 }
 
 /// <summary>Check configuration.</summary>
@@ -138,8 +162,17 @@ public sealed class PienChecksConfiguration
 /// <summary>Policy configuration.</summary>
 public sealed class PienPolicyConfiguration
 {
+    /// <summary>Built-in policy preset name.</summary>
+    public string Name { get; set; } = Policy.PolicyPresets.Balanced;
+
     /// <summary>Fail-on severity: info|low|medium|high|critical.</summary>
     public string FailOn { get; set; } = "high";
+
+    /// <summary>Per-check severity overrides keyed by stable check ID.</summary>
+    public Dictionary<string, string> SeverityOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Finding suppressions.</summary>
+    public List<PienSuppressionConfiguration> Suppressions { get; set; } = [];
 }
 
 /// <summary>Output configuration.</summary>
@@ -180,4 +213,17 @@ public sealed class PienNotificationConfiguration
 
     /// <summary>When true, webhook failure yields exit 9.</summary>
     public bool Required { get; set; }
+
+    /// <summary>Events that trigger notifications. Empty means all when webhook URL is set.</summary>
+    public List<string> Events { get; set; } = [];
+}
+
+/// <summary>Logging configuration.</summary>
+public sealed class PienLoggingConfiguration
+{
+    /// <summary>Log level name.</summary>
+    public string Level { get; set; } = "information";
+
+    /// <summary>Whether to include logging scopes.</summary>
+    public bool IncludeScopes { get; set; }
 }

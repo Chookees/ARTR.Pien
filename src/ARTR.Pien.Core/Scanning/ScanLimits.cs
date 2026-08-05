@@ -97,7 +97,7 @@ public sealed record ScanLimits
         }
 
         EnsureInRange(nameof(MaxCrawlPages), MaxCrawlPages, HardLimits.MinPositiveCount, HardLimits.MaxCrawlPages);
-        EnsureInRange(nameof(MaxCrawlDepth), MaxCrawlDepth, HardLimits.MinPositiveCount, HardLimits.MaxCrawlDepth);
+        EnsureInRange(nameof(MaxCrawlDepth), MaxCrawlDepth, 0, HardLimits.MaxCrawlDepth);
         EnsureInRange(nameof(MaxRedirects), MaxRedirects, HardLimits.MinPositiveCount, HardLimits.MaxRedirects);
         EnsureInRange(nameof(MaxLinksPerPage), MaxLinksPerPage, HardLimits.MinPositiveCount, HardLimits.MaxLinksPerPage);
         EnsureInRange(nameof(MaxDnsAddresses), MaxDnsAddresses, HardLimits.MinPositiveCount, HardLimits.MaxDnsAddresses);
