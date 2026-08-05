@@ -1,0 +1,71 @@
+{
+  "$schema": "../schemas/pien.schema.json",
+  "schemaVersion": 1,
+  "profile": "api",
+  "targets": [
+    {
+      "id": "local-api",
+      "kind": "api",
+      "url": "http://127.0.0.1:5088/",
+      "authorization": {
+        "confirmed": true,
+        "notes": "Loopback sample only."
+      },
+      "openApiDocument": "./samples/openapi/sample-api.openapi.json",
+      "apiCases": [
+        {
+          "id": "health-get",
+          "name": "Health endpoint",
+          "method": "GET",
+          "path": "/health",
+          "expectedStatus": 200,
+          "expectedContentType": "application/json",
+          "responseTimeBudgetMs": 500,
+          "jsonAssertions": [
+            {
+              "pointer": "/status",
+              "op": "eq",
+              "value": "ok"
+            }
+          ],
+          "allowNonIdempotent": false
+        },
+        {
+          "id": "items-list",
+          "name": "List items",
+          "method": "GET",
+          "path": "/api/items",
+          "expectedStatus": { "min": 200, "max": 299 },
+          "jsonAssertions": [
+            {
+              "pointer": "",
+              "op": "type",
+              "typeName": "array"
+            }
+          ],
+          "allowNonIdempotent": false
+        }
+      ]
+    }
+  ],
+  "network": {
+    "allowPrivateNetworks": true,
+    "allowedHosts": ["127.0.0.1", "localhost", "::1"],
+    "maxRedirects": 3
+  },
+  "crawl": {
+    "maxPages": 1,
+    "maxDepth": 0,
+    "respectRobotsTxt": false,
+    "useSitemap": false,
+    "sameOriginOnly": true
+  },
+  "policies": {
+    "name": "api-contract",
+    "failOn": "high"
+  },
+  "output": {
+    "directory": "./artifacts/pien",
+    "formats": ["console", "json", "junit"]
+  }
+}

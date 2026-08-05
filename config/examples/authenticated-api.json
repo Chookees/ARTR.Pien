@@ -1,0 +1,66 @@
+{
+  "$schema": "../schemas/pien.schema.json",
+  "schemaVersion": 1,
+  "profile": "api",
+  "targets": [
+    {
+      "id": "local-secure-api",
+      "kind": "api",
+      "url": "http://127.0.0.1:5088/",
+      "authorization": {
+        "confirmed": true,
+        "notes": "Loopback sample with bearer auth via secret reference. No raw secrets in this file."
+      },
+      "authentication": {
+        "scheme": "bearer",
+        "secretReference": "secret://env/PIEN_SAMPLE_API_TOKEN"
+      },
+      "apiCases": [
+        {
+          "id": "me-get",
+          "name": "Authenticated profile",
+          "method": "GET",
+          "path": "/api/me",
+          "expectedStatus": 200,
+          "requiredHeaders": ["Content-Type"],
+          "jsonAssertions": [
+            {
+              "pointer": "/id",
+              "op": "exists"
+            }
+          ],
+          "allowNonIdempotent": false
+        },
+        {
+          "id": "header-key-probe",
+          "name": "Custom header auth case",
+          "method": "GET",
+          "path": "/api/secure/ping",
+          "authentication": {
+            "scheme": "header",
+            "headerName": "X-Api-Key",
+            "secretReference": "secret://env/PIEN_SAMPLE_API_KEY"
+          },
+          "expectedStatus": 200,
+          "allowNonIdempotent": false
+        }
+      ]
+    }
+  ],
+  "network": {
+    "allowPrivateNetworks": true,
+    "allowedHosts": ["127.0.0.1", "localhost"],
+    "maxRedirects": 2
+  },
+  "policies": {
+    "name": "api-contract",
+    "failOn": "medium"
+  },
+  "output": {
+    "directory": "./artifacts/pien",
+    "formats": ["console", "json", "sarif"]
+  },
+  "logging": {
+    "level": "warning"
+  }
+}

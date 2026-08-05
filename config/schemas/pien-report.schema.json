@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://artr.dev/schemas/pien-report.schema.json",
+  "title": "ARTR Pien report document",
+  "description": "Canonical JSON report shape produced by the json exporter (ReportDocument). All evidence must already be redacted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "runId", "generatedAt", "findings"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Scan run identifier."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC generation timestamp (ISO-8601)."
+    },
+    "profile": {
+      "type": ["string", "null"]
+    },
+    "policy": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "policyName": { "type": "string" },
+        "passed": { "type": "boolean" },
+        "failOn": {
+          "type": "string",
+          "enum": ["info", "low", "medium", "high", "critical"]
+        },
+        "summary": { "type": ["string", "null"] },
+        "failedFindingIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "findingCount": { "type": "integer", "minimum": 0 },
+        "bySeverity": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "info": { "type": "integer", "minimum": 0 },
+            "low": { "type": "integer", "minimum": 0 },
+            "medium": { "type": "integer", "minimum": 0 },
+            "high": { "type": "integer", "minimum": 0 },
+            "critical": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "byStatus": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "durationMs": { "type": ["integer", "null"], "minimum": 0 },
+        "targetIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "baselineComparisons": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/baselineComparison" }
+    },
+    "categoryScores": {
+      "type": "object",
+      "additionalProperties": { "type": "number" },
+      "description": "Advisory scores only. Never certification claims."
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Non-secret metadata bag."
+    }
+  },
+  "$defs": {
+    "severity": {
+      "type": "string",
+      "enum": ["Info", "Low", "Medium", "High", "Critical", "info", "low", "medium", "high", "critical"]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Pass",
+        "Fail",
+        "Warning",
+        "NotApplicable",
+        "Skipped",
+        "Error",
+        "Suppressed",
+        "pass",
+        "fail",
+        "warning",
+        "notApplicable",
+        "skipped",
+        "error",
+        "suppressed"
+      ]
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "checkId",
+        "ruleVersion",
+        "title",
+        "summary",
+        "explanation",
+        "severity",
+        "status",
+        "targetId",
+        "timestamp",
+        "runId"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "checkId": {
+          "type": "string",
+          "pattern": "^PIEN-[A-Z0-9]+-[0-9]{3}$"
+        },
+        "ruleVersion": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "explanation": { "type": "string", "minLength": 1 },
+        "severity": { "$ref": "#/$defs/severity" },
+        "status": { "$ref": "#/$defs/status" },
+        "targetId": { "type": "string", "minLength": 1 },
+        "location": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["kind", "path"],
+          "properties": {
+            "kind": { "type": "string" },
+            "path": { "type": "string" }
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["contentType", "text", "truncated"],
+            "properties": {
+              "contentType": { "type": "string" },
+              "text": {
+                "type": "string",
+                "description": "Already redacted excerpt."
+              },
+              "truncated": { "type": "boolean" }
+            }
+          }
+        },
+        "expected": { "type": ["string", "null"] },
+        "observed": { "type": ["string", "null"] },
+        "remediation": { "type": ["string", "null"] },
+        "references": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "runId": { "type": "string" },
+        "baselineState": { "type": ["string", "null"] },
+        "suppression": { "type": ["string", "null"] }
+      }
+    },
+    "baselineComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["findingFingerprint", "kind"],
+      "properties": {
+        "findingFingerprint": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": ["New", "Resolved", "Unchanged", "Changed"]
+        },
+        "currentFindingId": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

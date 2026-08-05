@@ -1,0 +1,36 @@
+{
+  "$schema": "../schemas/pien.schema.json",
+  "schemaVersion": 1,
+  "profile": "quick",
+  "targets": [
+    {
+      "id": "example-site",
+      "kind": "website",
+      "url": "https://example.com/",
+      "authorization": {
+        "confirmed": false,
+        "notes": "Placeholder only. Set confirmed=true only for systems you own or are authorized to test."
+      }
+    }
+  ],
+  "network": {
+    "allowPrivateNetworks": false,
+    "allowedHosts": ["example.com"],
+    "maxRedirects": 5
+  },
+  "crawl": {
+    "maxPages": 10,
+    "maxDepth": 1,
+    "respectRobotsTxt": true,
+    "useSitemap": false,
+    "sameOriginOnly": true
+  },
+  "policies": {
+    "name": "balanced",
+    "failOn": "high"
+  },
+  "output": {
+    "directory": "./artifacts/pien",
+    "formats": ["console", "json"]
+  }
+}

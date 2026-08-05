@@ -1,0 +1,52 @@
+{
+  "$schema": "../schemas/pien.schema.json",
+  "schemaVersion": 1,
+  "profile": "standard",
+  "targets": [
+    {
+      "id": "local-site",
+      "kind": "website",
+      "url": "http://127.0.0.1:5088/",
+      "authorization": {
+        "confirmed": true,
+        "notes": "Local watch-mode sample. Do not point at third-party systems."
+      }
+    }
+  ],
+  "network": {
+    "allowPrivateNetworks": true,
+    "allowedHosts": ["127.0.0.1", "localhost", "::1"],
+    "maxRedirects": 5
+  },
+  "crawl": {
+    "maxPages": 25,
+    "maxDepth": 2,
+    "respectRobotsTxt": true,
+    "useSitemap": false,
+    "sameOriginOnly": true
+  },
+  "policies": {
+    "name": "balanced",
+    "failOn": "high"
+  },
+  "baselines": {
+    "id": "local-site-default",
+    "compareOnScan": true,
+    "failOnNew": false
+  },
+  "watch": {
+    "intervalSeconds": 300
+  },
+  "output": {
+    "directory": "./artifacts/pien",
+    "formats": ["console", "json"]
+  },
+  "storage": {
+    "stateDirectory": ".pien",
+    "retainRuns": 30
+  },
+  "notifications": {
+    "webhookUrl": null,
+    "required": false
+  }
+}

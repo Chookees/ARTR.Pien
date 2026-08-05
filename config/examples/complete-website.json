@@ -1,0 +1,67 @@
+{
+  "$schema": "../schemas/pien.schema.json",
+  "schemaVersion": 1,
+  "profile": "deep",
+  "targets": [
+    {
+      "id": "example-site",
+      "kind": "website",
+      "url": "https://www.example.com/",
+      "authorization": {
+        "confirmed": false,
+        "notes": "Placeholder. Confirm ownership before scanning."
+      }
+    }
+  ],
+  "network": {
+    "allowPrivateNetworks": false,
+    "allowedHosts": ["www.example.com", "example.com"],
+    "maxRedirects": 10,
+    "userAgent": "ARTR-Pien/0.1 (+https://github.com/ARTR-Projects/Pien)",
+    "connectTimeoutSeconds": 10,
+    "requestTimeoutSeconds": 30
+  },
+  "crawl": {
+    "maxPages": 200,
+    "maxDepth": 5,
+    "respectRobotsTxt": true,
+    "useSitemap": true,
+    "sameOriginOnly": true,
+    "maxLinksPerPage": 500
+  },
+  "checks": {
+    "enabled": [],
+    "disabled": []
+  },
+  "policies": {
+    "name": "security-focused",
+    "failOn": "medium",
+    "severityOverrides": {
+      "PIEN-HEADERS-001": "high",
+      "PIEN-TLS-001": "critical"
+    },
+    "suppressions": []
+  },
+  "baselines": {
+    "compareOnScan": false,
+    "failOnNew": false
+  },
+  "output": {
+    "directory": "./artifacts/pien",
+    "formats": ["console", "json", "sarif", "markdown", "html"]
+  },
+  "storage": {
+    "stateDirectory": ".pien",
+    "retainRuns": 50
+  },
+  "notifications": {
+    "webhookUrl": null,
+    "webhookSecretReference": null,
+    "required": false,
+    "events": []
+  },
+  "logging": {
+    "level": "information",
+    "includeScopes": false
+  }
+}

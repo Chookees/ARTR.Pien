@@ -1,36 +1,207 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://artr.dev/schemas/pien.schema.json",
-  "title": "ARTR Pien configuration",
+  "title": "ARTR Pien configuration (pien.json)",
+  "description": "Versioned configuration for the pien CLI. schemaVersion is currently fixed at 1.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "targets"],
   "properties": {
-    "schemaVersion": { "type": "integer", "const": 1 },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Configuration schema version. Must be 1."
+    },
     "profile": {
       "type": "string",
-      "enum": ["quick", "standard", "deep", "api", "ci"]
+      "enum": ["quick", "standard", "deep", "api", "ci"],
+      "default": "standard",
+      "description": "Built-in profile supplying defaults before pien.json field merges."
     },
     "targets": {
       "type": "array",
       "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "kind", "url", "authorization"],
-        "properties": {
-          "id": { "type": "string", "minLength": 1 },
-          "kind": { "type": "string", "enum": ["website", "api"] },
-          "url": { "type": "string", "format": "uri" },
-          "authorization": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["confirmed"],
-            "properties": {
-              "confirmed": { "type": "boolean" },
-              "notes": { "type": ["string", "null"] }
+      "description": "One or more authorized scan targets.",
+      "items": { "$ref": "#/$defs/target" }
+    },
+    "network": { "$ref": "#/$defs/network" },
+    "crawl": { "$ref": "#/$defs/crawl" },
+    "checks": { "$ref": "#/$defs/checks" },
+    "policies": { "$ref": "#/$defs/policies" },
+    "baselines": { "$ref": "#/$defs/baselines" },
+    "output": { "$ref": "#/$defs/output" },
+    "storage": { "$ref": "#/$defs/storage" },
+    "notifications": { "$ref": "#/$defs/notifications" },
+    "watch": { "$ref": "#/$defs/watch" },
+    "logging": { "$ref": "#/$defs/logging" }
+  },
+  "$defs": {
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"]
+    },
+    "secretReference": {
+      "type": "string",
+      "pattern": "^secret://(env|file)/.+$",
+      "description": "Unresolved secret reference. Never embed raw secret values."
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["confirmed"],
+      "properties": {
+        "confirmed": {
+          "type": "boolean",
+          "description": "Operator attestation that probing this target is authorized. Must be true to scan."
+        },
+        "notes": {
+          "type": ["string", "null"],
+          "description": "Non-secret notes (owner, ticket, environment). Never put credentials here."
+        }
+      }
+    },
+    "authentication": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scheme": {
+          "type": "string",
+          "enum": ["none", "bearer", "basic", "header", "cookie"],
+          "default": "none"
+        },
+        "secretReference": { "$ref": "#/$defs/secretReference" },
+        "headerName": {
+          "type": ["string", "null"],
+          "description": "Required when scheme is header. Example: X-Api-Key."
+        },
+        "usernameSecretReference": {
+          "type": ["string", "null"],
+          "pattern": "^secret://(env|file)/.+$",
+          "description": "Optional username for basic; password uses secretReference."
+        }
+      },
+      "description": "Optional request authentication. Values resolve only in memory via ISecretResolver."
+    },
+    "apiCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "method", "path"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": ["string", "null"] },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute http(s) URL or path relative to target.url."
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean", "null"] }
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Non-secret headers only. Auth via authentication/secretReference."
+        },
+        "authentication": { "$ref": "#/$defs/authentication" },
+        "body": { "type": ["string", "null"] },
+        "bodySecretReference": {
+          "type": ["string", "null"],
+          "pattern": "^secret://(env|file)/.+$"
+        },
+        "contentType": { "type": ["string", "null"] },
+        "expectedStatus": {
+          "oneOf": [
+            { "type": "integer", "minimum": 100, "maximum": 599 },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["min", "max"],
+              "properties": {
+                "min": { "type": "integer", "minimum": 100, "maximum": 599 },
+                "max": { "type": "integer", "minimum": 100, "maximum": 599 }
+              }
             }
-          }
+          ]
+        },
+        "expectedContentType": { "type": ["string", "null"] },
+        "responseTimeBudgetMs": { "type": ["integer", "null"], "minimum": 1 },
+        "maxBodyBytes": { "type": ["integer", "null"], "minimum": 1 },
+        "requiredHeaders": { "type": "array", "items": { "type": "string" } },
+        "forbiddenHeaders": { "type": "array", "items": { "type": "string" } },
+        "jsonAssertions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/jsonAssertion" }
+        },
+        "jsonSchemaPath": {
+          "type": ["string", "null"],
+          "description": "Local JSON Schema path relative to working directory."
+        },
+        "allowNonIdempotent": {
+          "type": "boolean",
+          "default": false,
+          "description": "POST/PUT/PATCH/DELETE require true plus authorization.confirmed. Default false (read-only)."
+        }
+      }
+    },
+    "jsonAssertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pointer", "op"],
+      "properties": {
+        "pointer": {
+          "type": "string",
+          "description": "RFC 6901 JSON Pointer."
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "exists",
+            "absent",
+            "eq",
+            "contains",
+            "type",
+            "range",
+            "length",
+            "regex"
+          ]
+        },
+        "value": {},
+        "min": { "type": ["number", "null"] },
+        "max": { "type": ["number", "null"] },
+        "typeName": {
+          "type": ["string", "null"],
+          "enum": ["string", "number", "integer", "boolean", "object", "array", "null"]
+        },
+        "pattern": { "type": ["string", "null"] }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "url", "authorization"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["website", "api"] },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Absolute http or https URL."
+        },
+        "authorization": { "$ref": "#/$defs/authorization" },
+        "authentication": { "$ref": "#/$defs/authentication" },
+        "openApiDocument": {
+          "type": ["string", "null"],
+          "description": "Local OpenAPI 3.x document path (JSON/YAML). No automatic destructive execution."
+        },
+        "apiCases": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/apiCase" },
+          "description": "Explicit API test cases. Empty means probe target.url only for api kind."
         }
       }
     },
@@ -38,38 +209,130 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "allowPrivateNetworks": { "type": "boolean" },
-        "allowedHosts": { "type": "array", "items": { "type": "string" } },
-        "maxRedirects": { "type": "integer", "minimum": 1, "maximum": 50 },
-        "userAgent": { "type": "string" }
+        "allowPrivateNetworks": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow private/link-local only when hosts are also allowlisted."
+        },
+        "allowedHosts": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Exact host allowlist. Replace-on-merge when set."
+        },
+        "maxRedirects": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 10
+        },
+        "userAgent": {
+          "type": "string",
+          "default": "ARTR-Pien/0.1 (+https://github.com/ARTR-Projects/Pien)"
+        },
+        "connectTimeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120,
+          "default": 10
+        },
+        "requestTimeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300,
+          "default": 30
+        }
       }
     },
     "crawl": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "maxPages": { "type": "integer", "minimum": 1, "maximum": 10000 },
-        "maxDepth": { "type": "integer", "minimum": 0, "maximum": 50 },
-        "respectRobotsTxt": { "type": "boolean" },
-        "useSitemap": { "type": "boolean" },
-        "sameOriginOnly": { "type": "boolean" }
+        "maxPages": { "type": "integer", "minimum": 1, "maximum": 10000, "default": 100 },
+        "maxDepth": { "type": "integer", "minimum": 0, "maximum": 50, "default": 5 },
+        "respectRobotsTxt": { "type": "boolean", "default": true },
+        "useSitemap": { "type": "boolean", "default": true },
+        "sameOriginOnly": { "type": "boolean", "default": true },
+        "maxLinksPerPage": { "type": "integer", "minimum": 1, "maximum": 10000, "default": 1000 }
       }
     },
     "checks": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "enabled": { "type": "array", "items": { "type": "string" } },
-        "disabled": { "type": "array", "items": { "type": "string" } }
+        "enabled": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "When non-empty, only these check IDs run (after profile defaults). Replace-on-merge."
+        },
+        "disabled": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Check IDs to skip. Replace-on-merge when set."
+        }
       }
     },
     "policies": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "failOn": {
+        "name": {
           "type": "string",
-          "enum": ["info", "low", "medium", "high", "critical"]
+          "enum": [
+            "balanced",
+            "security-focused",
+            "quality-focused",
+            "api-contract",
+            "ci-strict"
+          ],
+          "default": "balanced",
+          "description": "Built-in policy preset."
+        },
+        "failOn": {
+          "$ref": "#/$defs/severity",
+          "default": "high",
+          "description": "Fail scan (exit 1) when any Fail finding at or above this severity exists."
+        },
+        "severityOverrides": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/severity" },
+          "description": "Per-check severity overrides keyed by stable check ID. Replace-on-merge."
+        },
+        "suppressions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["checkId"],
+            "properties": {
+              "checkId": { "type": "string", "minLength": 1 },
+              "fingerprint": { "type": ["string", "null"] },
+              "reason": { "type": ["string", "null"] },
+              "expiresAt": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              }
+            }
+          },
+          "description": "Replace-on-merge when set. Suppressed findings use status Suppressed."
+        }
+      }
+    },
+    "baselines": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": ["string", "null"],
+          "description": "Baseline id to compare during scan when compareOnScan is true."
+        },
+        "compareOnScan": {
+          "type": "boolean",
+          "default": false
+        },
+        "failOnNew": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true with compareOnScan, new Fail findings vs baseline contribute to policy failure."
         }
       }
     },
@@ -77,13 +340,18 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "directory": { "type": "string" },
+        "directory": {
+          "type": "string",
+          "default": "./artifacts/pien"
+        },
         "formats": {
           "type": "array",
           "items": {
             "type": "string",
             "enum": ["console", "json", "sarif", "junit", "markdown", "html"]
-          }
+          },
+          "default": ["console", "json"],
+          "description": "Replace-on-merge when set. CLI --format overrides."
         }
       }
     },
@@ -91,24 +359,77 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "stateDirectory": { "type": "string" },
-        "retainRuns": { "type": "integer", "minimum": 1 }
-      }
-    },
-    "watch": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "intervalSeconds": { "type": "integer", "minimum": 1 }
+        "stateDirectory": {
+          "type": "string",
+          "default": ".pien"
+        },
+        "retainRuns": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 50
+        }
       }
     },
     "notifications": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "webhookUrl": { "type": ["string", "null"] },
-        "webhookSecretReference": { "type": ["string", "null"] },
-        "required": { "type": "boolean" }
+        "webhookUrl": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "HTTPS webhook URL. Subject to destination validation (SSRF)."
+        },
+        "webhookSecretReference": {
+          "type": ["string", "null"],
+          "pattern": "^secret://(env|file)/.+$"
+        },
+        "required": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, notification failure yields exit code 9."
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ScanCompleted",
+              "ScanFailed",
+              "ThresholdExceeded",
+              "NewCriticalFinding",
+              "BaselineChanged"
+            ]
+          },
+          "description": "Replace-on-merge. Empty means all events when webhookUrl is set."
+        }
+      }
+    },
+    "watch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "intervalSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400,
+          "default": 300,
+          "description": "Interval between watch cycles. No cron parser in v1."
+        }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["trace", "debug", "information", "warning", "error", "critical", "none"],
+          "default": "information"
+        },
+        "includeScopes": {
+          "type": "boolean",
+          "default": false
+        }
       }
     }
   }

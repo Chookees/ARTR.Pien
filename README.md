@@ -30,4 +30,7 @@ Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [SECURITY.md](SECURITY.md)
-- `docs/` (populated as the product matures)
+- [docs/HowToUse.md](docs/HowToUse.md)
+- [docs/product/ReadmeCatcher.md](docs/product/ReadmeCatcher.md) (catcher + README outline)
+- [docs/cli/CliUx.md](docs/cli/CliUx.md)
+- [docs/architecture/Architecture.md](docs/architecture/Architecture.md)

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://artr.dev/schemas/pien-baseline.schema.json",
+  "title": "ARTR Pien baseline document",
+  "description": "Stored under .pien/baselines/{id}.json. Must never contain secrets, cookies, auth headers, or full sensitive bodies.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "targetId",
+    "configurationFingerprint",
+    "findingFingerprints",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "description": "Safe path segment. No traversal."
+    },
+    "name": {
+      "type": ["string", "null"],
+      "description": "Optional display name."
+    },
+    "targetId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceRunId": {
+      "type": ["string", "null"],
+      "description": "Run used to create this baseline."
+    },
+    "configurationFingerprint": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Hash of normalized non-secret config relevant to the target."
+    },
+    "checkVersions": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Map of checkId → ruleVersion at baseline creation."
+    },
+    "findingFingerprints": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Normalized finding fingerprints (no secret material)."
+    },
+    "tlsCertificateFingerprint": {
+      "type": ["string", "null"]
+    },
+    "contentFingerprint": {
+      "type": ["string", "null"]
+    },
+    "openApiFingerprint": {
+      "type": ["string", "null"]
+    },
+    "redirectChainFingerprint": {
+      "type": ["string", "null"]
+    },
+    "categoryScores": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "description": "Operator notes. No secrets."
+    }
+  }
+}
