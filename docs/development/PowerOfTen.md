@@ -36,7 +36,7 @@ This document adapts Gerard J. Holzmann’s *Power of Ten* rules for managed C# 
 | PIEN0011 | Cancellation token ignored in bounded async operation | Planned if reliable patterns found; else API review |
 | PIEN0012 | User-controlled regex lacks safe options | Planned — prefer centralized `SafeRegex` helper + tests |
 
-Unreliable rules that would create excessive false positives are enforced via centralized APIs, architecture tests, and this document (ADR-008).
+Unreliable rules that would create excessive false positives are enforced via centralized APIs, architecture tests, and this document (ADR-008 / ADR-026).
 
 ## Logical line counting (PIEN0001)
 

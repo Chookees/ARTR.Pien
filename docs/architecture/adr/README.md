@@ -1,7 +1,7 @@
 # ADR index (canonical)
 
 **Date:** 2026-08-05  
-**Policy:** Concurrent architect writes produced duplicate numeric IDs. This index defines the **single canonical file per theme**. Duplicate files remain on disk for history but are **Superseded** (see banner at top of each duplicate). Prefer links from this index only.
+**Policy:** Concurrent architect writes produced duplicate numeric IDs. This index defines the **single canonical file per theme**. Prefer links from this index only.
 
 ## Required themes → canonical ADR
 
@@ -31,7 +31,7 @@
 | Direct work on main (initial implementation) | ADR-022 | [ADR-022-work-on-main.md](ADR-022-work-on-main.md) |
 | Regular commit policy | ADR-023 | [ADR-023-commit-policy.md](ADR-023-commit-policy.md) |
 
-## Supporting ADRs (unique IDs, no theme conflict)
+## Supporting ADRs (unique IDs)
 
 | ID | Title | File |
 |----|-------|------|
@@ -39,28 +39,7 @@
 | ADR-025 | Baselines | [ADR-025-baselines.md](ADR-025-baselines.md) |
 | ADR-026 | Roslyn analyzers for Power-of-Ten | [ADR-026-analyzers.md](ADR-026-analyzers.md) |
 | ADR-027 | HTML parsing with AngleSharp | [ADR-027-anglesharp.md](ADR-027-anglesharp.md) |
-
-## Superseded duplicates (do not cite as primary)
-
-| Duplicate file | Conflicts with | Use instead |
-|----------------|----------------|-------------|
-| [ADR-004-openapi.md](ADR-004-openapi.md) | ADR-004 naming | ADR-024 |
-| [ADR-006-ssrf-safe-http.md](ADR-006-ssrf-safe-http.md) | ADR-006 .NET 10 | ADR-011 |
-| [ADR-007-local-file-storage.md](ADR-007-local-file-storage.md) | ADR-007 boundaries | ADR-015 |
-| [ADR-008-power-of-ten-analyzers.md](ADR-008-power-of-ten-analyzers.md) | ADR-008 Power-of-Ten | ADR-026 |
-| [ADR-009-baselines.md](ADR-009-baselines.md) | ADR-009 no containers | ADR-025 |
-| [ADR-010-report-formats.md](ADR-010-report-formats.md) | ADR-010 no external services | ADR-017 |
-| [ADR-011-project-boundaries.md](ADR-011-project-boundaries.md) | ADR-011 SSRF | ADR-007 |
-| [ADR-012-no-containers.md](ADR-012-no-containers.md) | ADR-012 redirects | ADR-009 (+ ADR-010) |
-| [ADR-013-compile-time-extensions.md](ADR-013-compile-time-extensions.md) | ADR-013 no destructive API | ADR-018 |
-| [ADR-014-webhooks.md](ADR-014-webhooks.md) | ADR-014 JSON config | TrustBoundaries B7 + Architecture (optional future ADR-028) |
-| [ADR-015-anglesharp.md](ADR-015-anglesharp.md) | ADR-015 local storage | ADR-027 |
-| [ADR-016-product-naming.md](ADR-016-product-naming.md) | ADR-016 check IDs | ADR-004 |
-| [ADR-017-dotnet10.md](ADR-017-dotnet10.md) | ADR-017 report formats | ADR-006 |
-| [ADR-018-licensing-compliance.md](ADR-018-licensing-compliance.md) | ADR-018 extensions | ADR-020 + ADR-021 |
-| [ADR-019-main-branch-workflow.md](ADR-019-main-branch-workflow.md) | ADR-019 no plugins | ADR-022 |
-| [ADR-020-coverage.md](ADR-020-coverage.md) | ADR-020 Apache-2.0 | Coverage gates in `Directory.Build.props` / DependencyResearch (optional future ADR-029) |
-| [ADR-021-stable-check-ids.md](ADR-021-stable-check-ids.md) | ADR-021 compliance | ADR-016 |
-| [ADR-022-no-destructive-api.md](ADR-022-no-destructive-api.md) | ADR-022 work on main | ADR-013 |
+| ADR-028 | Optional webhook notifications | [ADR-028-webhooks.md](ADR-028-webhooks.md) |
+| ADR-029 | Coverage gate strategy | [ADR-029-coverage.md](ADR-029-coverage.md) |
 
 All canonical ADRs dated **2026-08-05** unless amended later.

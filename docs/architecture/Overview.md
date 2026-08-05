@@ -82,9 +82,11 @@ v1 is single-process, local-file state. Concurrent overlapping watch runs are fo
 
 ## Related docs
 
+- [Architecture.md](Architecture.md) — expanded overview (identity, limits, lifecycle)
 - [PIEN-Pipeline.md](PIEN-Pipeline.md)
 - [DependencyGraph.md](DependencyGraph.md)
 - [CodingStandards.md](CodingStandards.md)
-- [ADR index](adr/)
+- [DataFlow.md](DataFlow.md) · [TrustBoundaries.md](TrustBoundaries.md) · [ExtensionModel.md](ExtensionModel.md)
+- [ADR index](adr/README.md) (ADR-001–ADR-029)
 - [DependencyResearch.md](../development/DependencyResearch.md)
 - [PowerOfTen.md](../development/PowerOfTen.md)
