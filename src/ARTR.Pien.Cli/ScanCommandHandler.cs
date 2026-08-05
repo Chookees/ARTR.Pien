@@ -1,10 +1,12 @@
 using System.CommandLine;
+
 using ARTR.Pien;
 using ARTR.Pien.Abstractions;
 using ARTR.Pien.Configuration;
 using ARTR.Pien.Exceptions;
 using ARTR.Pien.Reporting;
 using ARTR.Pien.Scanning;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ARTR.Pien.Cli;

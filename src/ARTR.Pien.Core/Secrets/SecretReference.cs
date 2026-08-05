@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+
 using ARTR.Pien.Exceptions;
 
 namespace ARTR.Pien.Secrets;

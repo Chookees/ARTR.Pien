@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
 using ARTR.Pien;
 using ARTR.Pien.Abstractions;
 using ARTR.Pien.Checks;
@@ -11,6 +12,7 @@ using ARTR.Pien.Hosting;
 using ARTR.Pien.Policy;
 using ARTR.Pien.Reporting;
 using ARTR.Pien.Scanning;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ARTR.Pien.Cli;

@@ -452,9 +452,6 @@
           "ARTR.Pien.Core": "[0.1.0, )"
         }
       },
-      "artr.pien.sampleapi": {
-        "type": "Project"
-      },
       "artr.pien.samplesite": {
         "type": "Project"
       },
