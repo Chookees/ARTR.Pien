@@ -25,7 +25,13 @@ public static class Program
     /// <summary>
     /// Application entry point.
     /// </summary>
-    public static async Task<int> Main(string[] args)
+    public static Task<int> Main(string[] args)
+        => RunAsync(args, CancellationToken.None);
+
+    /// <summary>
+    /// Testable entry point that honors cancellation (watch / long-running commands).
+    /// </summary>
+    public static async Task<int> RunAsync(string[] args, CancellationToken cancellationToken)
     {
         var root = new RootCommand("ARTR Pien — Test. Inspect. Examine. Report.");
         root.Subcommands.Add(BuildInitCommand());
@@ -39,7 +45,7 @@ public static class Program
         root.Subcommands.Add(BuildDoctorCommand());
         root.Subcommands.Add(BuildWatchCommand());
         root.Subcommands.Add(BuildVersionCommand());
-        return await root.Parse(args).InvokeAsync();
+        return await root.Parse(args).InvokeAsync(cancellationToken: cancellationToken);
     }
 
     private static Command BuildInitCommand()

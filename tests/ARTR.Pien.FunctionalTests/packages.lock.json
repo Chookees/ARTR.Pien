@@ -420,6 +420,13 @@
           "NJsonSchema": "[11.6.1, )"
         }
       },
+      "artr.pien.cli": {
+        "type": "Project",
+        "dependencies": {
+          "ARTR.Pien.Hosting": "[0.1.0, )",
+          "System.CommandLine": "[2.0.10, )"
+        }
+      },
       "artr.pien.core": {
         "type": "Project"
       },
@@ -472,13 +479,6 @@
         "dependencies": {
           "ARTR.Pien.Core": "[0.1.0, )",
           "AngleSharp": "[1.7.0, )"
-        }
-      },
-      "pien": {
-        "type": "Project",
-        "dependencies": {
-          "ARTR.Pien.Hosting": "[0.1.0, )",
-          "System.CommandLine": "[2.0.10, )"
         }
       },
       "AngleSharp": {

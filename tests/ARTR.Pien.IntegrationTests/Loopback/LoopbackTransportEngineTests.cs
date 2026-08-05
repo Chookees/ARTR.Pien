@@ -4,6 +4,7 @@ using System.Text;
 using ARTR.Pien.Abstractions;
 using ARTR.Pien.Checks;
 using ARTR.Pien.Engine;
+using ARTR.Pien.Exceptions;
 using ARTR.Pien.Hosting;
 using ARTR.Pien.Policy;
 using ARTR.Pien.Probing;
@@ -54,6 +55,32 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
         {
             ctx.Response.StatusCode = StatusCodes.Status302Found;
             return Task.CompletedTask;
+        });
+        app.MapGet("/invalid-location", ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status302Found;
+            ctx.Response.Headers.Location = "http://[";
+            return Task.CompletedTask;
+        });
+        app.MapGet("/cross-host-redirect", ctx =>
+        {
+            var port = ctx.Connection.LocalPort;
+            ctx.Response.StatusCode = StatusCodes.Status302Found;
+            ctx.Response.Headers.Location = $"http://127.0.0.1:{port}/";
+            return Task.CompletedTask;
+        });
+        app.MapMethods("/echo", ["POST", "PUT", "PATCH", "DELETE", "OPTIONS"], async ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status200OK;
+            ctx.Response.ContentType = "text/plain";
+            await ctx.Response.WriteAsync("echo");
+        });
+        app.MapGet("/large", async ctx =>
+        {
+            ctx.Response.ContentType = "application/octet-stream";
+            var payload = new byte[4096];
+            Random.Shared.NextBytes(payload);
+            await ctx.Response.Body.WriteAsync(payload);
         });
         app.MapMethods("/head-only", ["HEAD"], ctx =>
         {
@@ -174,11 +201,69 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
             context,
             TestContext.Current.CancellationToken));
 
+        await Assert.ThrowsAsync<ARTR.Pien.Exceptions.TargetSafetyException>(() => transport.SendAsync(
+            ProbeRequest.Create(new ProbeRequest { Uri = new Uri(_baseUri!, "/invalid-location"), Method = ProbeMethod.Get }),
+            context,
+            TestContext.Current.CancellationToken));
+
+        var userInfoUri = new UriBuilder(_baseUri!) { UserName = "u", Password = "p", Path = "/cross-host-redirect" }.Uri;
+        var stripped = await transport.SendAsync(
+            ProbeRequest.Create(new ProbeRequest { Uri = userInfoUri, Method = ProbeMethod.Get }),
+            context,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, stripped.StatusCode);
+
+        foreach (var method in new[] { ProbeMethod.Post, ProbeMethod.Put, ProbeMethod.Patch, ProbeMethod.Delete, ProbeMethod.Options })
+        {
+            var echo = await transport.SendAsync(
+                ProbeRequest.Create(new ProbeRequest
+                {
+                    Uri = new Uri(_baseUri!, "/echo"),
+                    Method = method,
+                    Body = method is ProbeMethod.Post or ProbeMethod.Put or ProbeMethod.Patch
+                        ? Encoding.UTF8.GetBytes("body")
+                        : ReadOnlyMemory<byte>.Empty,
+                    ContentType = "text/plain",
+                    Headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["X-Custom"] = "1",
+                        ["Content-Language"] = "en",
+                    },
+                    MaxResponseBodyBytes = 1024,
+                }),
+                context,
+                TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, echo.StatusCode);
+        }
+
+        var truncated = await transport.SendAsync(
+            ProbeRequest.Create(new ProbeRequest
+            {
+                Uri = new Uri(_baseUri!, "/large"),
+                Method = ProbeMethod.Get,
+                MaxResponseBodyBytes = 64,
+            }),
+            context,
+            TestContext.Current.CancellationToken);
+        Assert.True(truncated.BodyTruncated);
+        Assert.True(truncated.Body.Length <= 64);
+
+        using (var zeroRedirect = new SafeHttpTransport(new DestinationValidator(), network with { MaxRedirects = 0 }))
+        {
+            var stopped = await zeroRedirect.SendAsync(
+                ProbeRequest.Create(new ProbeRequest { Uri = new Uri(_baseUri!, "/redirect"), Method = ProbeMethod.Get }),
+                context,
+                TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Found, stopped.StatusCode);
+        }
+
         var head = await transport.SendAsync(
             ProbeRequest.Create(new ProbeRequest { Uri = new Uri(_baseUri!, "/head-only"), Method = ProbeMethod.Head, MaxResponseBodyBytes = 1 }),
             context,
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, head.StatusCode);
+        Assert.Throws<ArgumentNullException>(() => new SafeHttpTransport(null!, network));
+        Assert.Throws<ArgumentNullException>(() => new SafeHttpTransport(new DestinationValidator(), null!));
         transport.Dispose();
         await Assert.ThrowsAsync<ObjectDisposedException>(() => transport.SendAsync(
             ProbeRequest.Create(new ProbeRequest { Uri = _baseUri!, Method = ProbeMethod.Get }),

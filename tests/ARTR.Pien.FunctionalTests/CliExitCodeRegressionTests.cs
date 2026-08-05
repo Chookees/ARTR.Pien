@@ -115,7 +115,7 @@ public sealed class CliExitCodeRegressionTests
 
     private static async Task<(int ExitCode, string Stderr)> RunCliAsync(string[] args)
     {
-        var dll = Path.Combine(FindRepoRoot(), "src", "ARTR.Pien.Cli", "bin", "Release", "net10.0", "pien.dll");
+        var dll = Path.Combine(FindRepoRoot(), "src", "ARTR.Pien.Cli", "bin", "Release", "net10.0", "ARTR.Pien.Cli.dll");
         Assert.True(File.Exists(dll), $"CLI assembly not found at {dll}. Build Release first.");
         var start = new ProcessStartInfo
         {

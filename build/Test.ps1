@@ -34,7 +34,9 @@ dotnet test "$root/ARTR.Pien.sln" -c $Configuration `
   --collect:"XPlat Code Coverage" `
   --results-directory $results `
   --settings $runsettings
-
+if ($LASTEXITCODE -ne 0) {
+  throw "dotnet test failed with exit code $LASTEXITCODE"
+}
 $coverageFiles = @(Get-ChildItem -Path $results -Recurse -Filter "coverage.cobertura.xml")
 if ($coverageFiles.Count -eq 0) {
   throw "No Cobertura coverage files were produced."
