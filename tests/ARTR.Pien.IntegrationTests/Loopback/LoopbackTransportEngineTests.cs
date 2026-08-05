@@ -50,6 +50,16 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
             ctx.Response.Headers.Location = "/";
             return Task.CompletedTask;
         });
+        app.MapGet("/bad-redirect", ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status302Found;
+            return Task.CompletedTask;
+        });
+        app.MapMethods("/head-only", ["HEAD"], ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status200OK;
+            return Task.CompletedTask;
+        });
         app.MapGet("/api/health", async ctx =>
         {
             ctx.Response.ContentType = "application/json";
@@ -132,6 +142,48 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.NotEmpty(result.RedirectChain);
+    }
+
+    [Fact]
+    public async Task Transport_rejects_redirect_without_location()
+    {
+        var network = new NetworkSafetyOptions
+        {
+            AllowPrivateNetworks = true,
+            AllowedHosts = ["127.0.0.1", "localhost"],
+            MaxRedirects = 3,
+        };
+        using var transport = new SafeHttpTransport(new DestinationValidator(), network);
+        var target = ScanTarget.Create(new ScanTarget
+        {
+            Id = "loop",
+            Kind = ScanTargetKind.Website,
+            BaseUrl = _baseUri!,
+            Authorization = new TargetAuthorization(true),
+        });
+        var definition = ScanDefinition.Create(new ScanDefinition
+        {
+            SchemaVersion = 1,
+            ProfileName = "quick",
+            Targets = [target],
+            Limits = ScanLimits.Default,
+        });
+        var context = new ScanContext(ScanRunId.NewId(), definition, definition.Limits, target, static () => DateTimeOffset.UtcNow);
+        await Assert.ThrowsAsync<ARTR.Pien.Exceptions.HttpProtocolException>(() => transport.SendAsync(
+            ProbeRequest.Create(new ProbeRequest { Uri = new Uri(_baseUri!, "/bad-redirect"), Method = ProbeMethod.Get }),
+            context,
+            TestContext.Current.CancellationToken));
+
+        var head = await transport.SendAsync(
+            ProbeRequest.Create(new ProbeRequest { Uri = new Uri(_baseUri!, "/head-only"), Method = ProbeMethod.Head, MaxResponseBodyBytes = 1 }),
+            context,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, head.StatusCode);
+        transport.Dispose();
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => transport.SendAsync(
+            ProbeRequest.Create(new ProbeRequest { Uri = _baseUri!, Method = ProbeMethod.Get }),
+            context,
+            TestContext.Current.CancellationToken));
     }
 
     [Fact]
