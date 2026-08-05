@@ -1,4 +1,5 @@
-﻿using System.CommandLine;
+using System.CommandLine;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using ARTR.Pien;
@@ -7,6 +8,7 @@ using ARTR.Pien.Checks;
 using ARTR.Pien.Configuration;
 using ARTR.Pien.Exceptions;
 using ARTR.Pien.Hosting;
+using ARTR.Pien.Policy;
 using ARTR.Pien.Reporting;
 using ARTR.Pien.Scanning;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,10 +49,18 @@ public static class Program
         var command = new Command("init", "Create a starter pien.json") { website, api, ci, force };
         command.SetAction(async (parseResult, cancellationToken) =>
         {
+            if (parseResult.GetValue(website) && parseResult.GetValue(api))
+            {
+                Console.Error.WriteLine("error: Choose either --website or --api, not both.");
+                Console.Error.WriteLine("  hint: See `pien init --help`.");
+                return (int)PienExitCode.InvalidArguments;
+            }
+
             var path = Path.Combine(Directory.GetCurrentDirectory(), "pien.json");
             if (File.Exists(path) && !parseResult.GetValue(force))
             {
-                Console.Error.WriteLine("pien.json already exists. Use --force to overwrite.");
+                Console.Error.WriteLine("error: pien.json already exists.");
+                Console.Error.WriteLine("  hint: Use --force to overwrite.");
                 return (int)PienExitCode.InvalidArguments;
             }
 
@@ -63,6 +73,7 @@ public static class Program
                 "  \"network\": { \"allowPrivateNetworks\": true, \"allowedHosts\": [\"127.0.0.1\", \"localhost\"] }\n}\n";
             await File.WriteAllTextAsync(path, json, cancellationToken).ConfigureAwait(false);
             Console.WriteLine($"Wrote {path}");
+            Console.WriteLine("Next: edit targets, then run `pien validate` and `pien scan`.");
             return (int)PienExitCode.Success;
         });
         return command;
@@ -77,10 +88,17 @@ public static class Program
         var output = new Option<string?>("--output");
         var failOn = new Option<string?>("--fail-on");
         var maxPages = new Option<int?>("--max-pages");
+        var maxDepth = new Option<int?>("--max-depth");
+        var baseline = new Option<string?>("--baseline");
         var quiet = new Option<bool>("--quiet");
-        var command = new Command("scan", "Run a PIEN scan") { config, target, profile, format, output, failOn, maxPages, quiet };
+        var confirmAuth = new Option<bool>("--confirm-authorization");
+        var command = new Command("scan", "Run a PIEN scan")
+        {
+            config, target, profile, format, output, failOn, maxPages, maxDepth, baseline, quiet, confirmAuth,
+        };
         command.SetAction(async (parseResult, cancellationToken) =>
-            await ScanCommandHandler.ExecuteAsync(parseResult, config, target, profile, format, output, failOn, maxPages, quiet, cancellationToken)
+            await ScanCommandHandler.ExecuteAsync(
+                    parseResult, config, target, profile, format, output, failOn, maxPages, maxDepth, baseline, quiet, confirmAuth, cancellationToken)
                 .ConfigureAwait(false));
         return command;
     }
@@ -103,7 +121,8 @@ public static class Program
             }
             catch (ConfigurationException ex)
             {
-                Console.Error.WriteLine(ex.Message);
+                Console.Error.WriteLine($"error: {ex.Message}");
+                Console.Error.WriteLine("  hint: Fix pien.json.");
                 return (int)PienExitCode.InvalidConfiguration;
             }
         });
@@ -146,15 +165,20 @@ public static class Program
             var check = provider.GetRequiredService<ICheckCatalog>().Get(CheckId.Create(id));
             if (check is null)
             {
-                Console.Error.WriteLine($"Unknown check '{id}'.");
+                Console.Error.WriteLine($"error: Unknown check '{id}'.");
+                Console.Error.WriteLine("  hint: Run `pien list-checks`.");
                 return (int)PienExitCode.InvalidArguments;
             }
 
-            Console.WriteLine(check.Definition.Name);
-            Console.WriteLine(check.Definition.Description);
-            Console.WriteLine($"Category: {check.Definition.Category}");
-            Console.WriteLine($"Default severity: {check.Definition.DefaultSeverity}");
-            Console.WriteLine($"Rule version: {check.Definition.RuleVersion}");
+            var definition = check.Definition;
+            Console.WriteLine(definition.Name);
+            Console.WriteLine(definition.Description);
+            Console.WriteLine($"Category: {definition.Category}");
+            Console.WriteLine($"Default severity: {definition.DefaultSeverity}");
+            Console.WriteLine($"Rule version: {definition.RuleVersion}");
+            Console.WriteLine("Remediation: Address the observed finding according to the check description and your security/quality policy.");
+            Console.WriteLine("Limitations: Checks are deterministic HTTP/TLS/HTML/API inspections; they are not a browser, exploit, or certification suite.");
+            Console.WriteLine("References: docs/checks/CheckCatalog.md");
             return (int)PienExitCode.Success;
         });
         return command;
@@ -163,10 +187,132 @@ public static class Program
     private static Command BuildBaselineCommand()
     {
         var command = new Command("baseline", "Manage baselines");
-        command.Subcommands.Add(Stub("create", "Create a baseline"));
-        command.Subcommands.Add(Stub("show", "Show a baseline"));
-        command.Subcommands.Add(Stub("compare", "Compare against a baseline"));
-        command.Subcommands.Add(Stub("remove", "Remove a baseline"));
+        command.Subcommands.Add(BuildBaselineCreateCommand());
+        command.Subcommands.Add(BuildBaselineShowCommand());
+        command.Subcommands.Add(BuildBaselineCompareCommand());
+        command.Subcommands.Add(BuildBaselineRemoveCommand());
+        return command;
+    }
+
+    private static Command BuildBaselineCreateCommand()
+    {
+        var id = new Option<string>("--id") { Required = true };
+        var runId = new Option<string>("--run-id") { Required = true };
+        var command = new Command("create", "Create a baseline from a stored run") { id, runId };
+        command.SetAction(async (parseResult, cancellationToken) =>
+        {
+            try
+            {
+                await using var provider = BuildServices(Directory.GetCurrentDirectory());
+                var run = await provider.GetRequiredService<IRunHistoryStore>()
+                    .GetAsync(ScanRunId.Create(parseResult.GetValue(runId)!), cancellationToken)
+                    .ConfigureAwait(false);
+                if (run is null)
+                {
+                    Console.Error.WriteLine("error: Run not found.");
+                    return (int)PienExitCode.BaselineFailed;
+                }
+
+                var targetId = run.Plan.Definition.Targets.FirstOrDefault()?.Id ?? "unknown";
+                var fingerprints = run.Findings
+                    .Select(f => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{f.CheckId}|{f.Title}|{f.Status}"))))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(x => x, StringComparer.Ordinal)
+                    .ToArray();
+                var baseline = Baseline.Create(new Baseline
+                {
+                    Id = parseResult.GetValue(id)!,
+                    TargetId = targetId,
+                    ConfigurationFingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(run.Plan.Definition.ProfileName))),
+                    FindingFingerprints = fingerprints,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                });
+                await provider.GetRequiredService<IBaselineStore>().SaveAsync(baseline, cancellationToken).ConfigureAwait(false);
+                Console.WriteLine($"Created baseline '{baseline.Id}' from run {run.Id.Value}.");
+                return (int)PienExitCode.Success;
+            }
+            catch (Exception ex) when (ex is StorageException or IOException or ArgumentException)
+            {
+                Console.Error.WriteLine($"error: {ex.Message}");
+                return (int)PienExitCode.BaselineFailed;
+            }
+        });
+        return command;
+    }
+
+    private static Command BuildBaselineShowCommand()
+    {
+        var id = new Option<string>("--id") { Required = true };
+        var command = new Command("show", "Show a baseline") { id };
+        command.SetAction(async (parseResult, cancellationToken) =>
+        {
+            await using var provider = BuildServices(Directory.GetCurrentDirectory());
+            var baseline = await provider.GetRequiredService<IBaselineStore>()
+                .GetAsync(parseResult.GetValue(id)!, cancellationToken)
+                .ConfigureAwait(false);
+            if (baseline is null)
+            {
+                Console.Error.WriteLine("error: Baseline not found.");
+                return (int)PienExitCode.BaselineFailed;
+            }
+
+            Console.WriteLine(JsonSerializer.Serialize(baseline, new JsonSerializerOptions { WriteIndented = true }));
+            return (int)PienExitCode.Success;
+        });
+        return command;
+    }
+
+    private static Command BuildBaselineCompareCommand()
+    {
+        var id = new Option<string>("--id") { Required = true };
+        var runId = new Option<string>("--run-id") { Required = true };
+        var command = new Command("compare", "Compare a run against a baseline") { id, runId };
+        command.SetAction(async (parseResult, cancellationToken) =>
+        {
+            await using var provider = BuildServices(Directory.GetCurrentDirectory());
+            var baseline = await provider.GetRequiredService<IBaselineStore>()
+                .GetAsync(parseResult.GetValue(id)!, cancellationToken)
+                .ConfigureAwait(false);
+            var run = await provider.GetRequiredService<IRunHistoryStore>()
+                .GetAsync(ScanRunId.Create(parseResult.GetValue(runId)!), cancellationToken)
+                .ConfigureAwait(false);
+            if (baseline is null || run is null)
+            {
+                Console.Error.WriteLine("error: Baseline or run not found.");
+                return (int)PienExitCode.BaselineFailed;
+            }
+
+            var current = run.Findings
+                .Select(f => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{f.CheckId}|{f.Title}|{f.Status}"))))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var baselineSet = baseline.FindingFingerprints.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            Console.WriteLine($"New: {current.Except(baselineSet, StringComparer.OrdinalIgnoreCase).Count()}");
+            Console.WriteLine($"Resolved: {baselineSet.Except(current, StringComparer.OrdinalIgnoreCase).Count()}");
+            Console.WriteLine($"Unchanged: {current.Intersect(baselineSet, StringComparer.OrdinalIgnoreCase).Count()}");
+            return (int)PienExitCode.Success;
+        });
+        return command;
+    }
+
+    private static Command BuildBaselineRemoveCommand()
+    {
+        var id = new Option<string>("--id") { Required = true };
+        var command = new Command("remove", "Remove a baseline") { id };
+        command.SetAction(async (parseResult, cancellationToken) =>
+        {
+            await using var provider = BuildServices(Directory.GetCurrentDirectory());
+            var removed = await provider.GetRequiredService<IBaselineStore>()
+                .DeleteAsync(parseResult.GetValue(id)!, cancellationToken)
+                .ConfigureAwait(false);
+            if (!removed)
+            {
+                Console.Error.WriteLine("error: Baseline not found.");
+                return (int)PienExitCode.BaselineFailed;
+            }
+
+            Console.WriteLine($"Removed baseline '{parseResult.GetValue(id)}'.");
+            return (int)PienExitCode.Success;
+        });
         return command;
     }
 
@@ -185,7 +331,27 @@ public static class Program
             return (int)PienExitCode.Success;
         });
         command.Subcommands.Add(list);
-        command.Subcommands.Add(Stub("show", "Show a run"));
+
+        var show = new Command("show", "Show a run");
+        var runId = new Option<string>("--run-id") { Required = true };
+        show.Options.Add(runId);
+        show.SetAction(async (parseResult, cancellationToken) =>
+        {
+            await using var provider = BuildServices(Directory.GetCurrentDirectory());
+            var run = await provider.GetRequiredService<IRunHistoryStore>()
+                .GetAsync(ScanRunId.Create(parseResult.GetValue(runId)!), cancellationToken)
+                .ConfigureAwait(false);
+            if (run is null)
+            {
+                Console.Error.WriteLine("error: Run not found.");
+                return (int)PienExitCode.StorageFailed;
+            }
+
+            Console.WriteLine(JsonSerializer.Serialize(run, new JsonSerializerOptions { WriteIndented = true }));
+            return (int)PienExitCode.Success;
+        });
+        command.Subcommands.Add(show);
+
         var clean = new Command("clean", "Apply retention");
         clean.SetAction(async (_, cancellationToken) =>
         {
@@ -209,15 +375,21 @@ public static class Program
             var run = await provider.GetRequiredService<IRunHistoryStore>().GetAsync(ScanRunId.Create(parseResult.GetValue(runId)!), cancellationToken).ConfigureAwait(false);
             if (run is null)
             {
-                Console.Error.WriteLine("Run not found.");
+                Console.Error.WriteLine("error: Run not found.");
                 return (int)PienExitCode.ReportFailed;
             }
 
+            var requested = parseResult.GetValue(format)!;
+            if (string.Equals(requested, "md", StringComparison.OrdinalIgnoreCase))
+            {
+                requested = ReportFormats.Markdown;
+            }
+
             var document = ReportDocument.Create(new ReportDocument { SchemaVersion = 1, RunId = run.Id, GeneratedAt = DateTimeOffset.UtcNow, Findings = run.Findings });
-            var exporter = provider.GetServices<IReportExporter>().FirstOrDefault(e => string.Equals(e.Format, parseResult.GetValue(format), StringComparison.OrdinalIgnoreCase));
+            var exporter = provider.GetServices<IReportExporter>().FirstOrDefault(e => string.Equals(e.Format, requested, StringComparison.OrdinalIgnoreCase));
             if (exporter is null)
             {
-                Console.Error.WriteLine("Unknown format.");
+                Console.Error.WriteLine("error: Unknown format.");
                 return (int)PienExitCode.ReportFailed;
             }
 
@@ -229,14 +401,50 @@ public static class Program
 
     private static Command BuildDoctorCommand()
     {
-        var command = new Command("doctor", "Diagnose local runtime and configuration");
-        command.SetAction((_, _) =>
+        var network = new Option<bool>("--network");
+        var command = new Command("doctor", "Diagnose local runtime and configuration") { network };
+        command.SetAction(async (parseResult, cancellationToken) =>
         {
-            Console.WriteLine($"SDK/runtime: {Environment.Version}");
-            Console.WriteLine($"Working directory writable: {IsWritable(Directory.GetCurrentDirectory())}");
-            Console.WriteLine($"State directory (.pien): {(Directory.Exists(".pien") ? "present" : "absent")}");
-            Console.WriteLine("Secrets are never printed by doctor.");
-            return Task.FromResult((int)PienExitCode.Success);
+            Console.WriteLine($"OK SDK/runtime: {Environment.Version}");
+            Console.WriteLine($"OK Working directory writable: {IsWritable(Directory.GetCurrentDirectory())}");
+            Console.WriteLine($"OK State directory (.pien): {(Directory.Exists(".pien") ? "present" : "absent")}");
+            Console.WriteLine("OK Secrets are never printed by doctor.");
+            if (File.Exists("pien.json"))
+            {
+                try
+                {
+                    await using var provider = BuildServices(Directory.GetCurrentDirectory());
+                    var configuration = await provider.GetRequiredService<IConfigLoader>()
+                        .LoadAsync(new ConfigLoadRequest("pien.json", Directory.GetCurrentDirectory()), cancellationToken)
+                        .ConfigureAwait(false);
+                    _ = PienConfigurationValidator.Validate(configuration, Directory.GetCurrentDirectory());
+                    Console.WriteLine("OK Configuration validates.");
+                }
+                catch (ConfigurationException ex)
+                {
+                    Console.WriteLine($"ERR Configuration: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("WARN pien.json absent.");
+            }
+
+            if (parseResult.GetValue(network))
+            {
+                Console.WriteLine("OK Network opt-in: loopback DNS resolve only.");
+                try
+                {
+                    _ = await System.Net.Dns.GetHostAddressesAsync("127.0.0.1", cancellationToken).ConfigureAwait(false);
+                    Console.WriteLine("OK Loopback DNS usable.");
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    Console.WriteLine($"ERR Loopback DNS: {ex.Message}");
+                }
+            }
+
+            return (int)PienExitCode.Success;
         });
         return command;
     }
@@ -247,19 +455,30 @@ public static class Program
         var command = new Command("watch", "Run scans on an interval without overlap") { interval };
         command.SetAction(async (parseResult, cancellationToken) =>
         {
-            var seconds = Math.Max(1, parseResult.GetValue(interval));
-            Console.WriteLine($"Watching every {seconds}s. Press Ctrl+C to cancel.");
+            var seconds = Math.Clamp(parseResult.GetValue(interval), 5, 86_400);
+            Console.Error.WriteLine($"Watching every {seconds}s. Press Ctrl+C to cancel.");
+            var cycle = 0;
             while (!cancellationToken.IsCancellationRequested)
             {
+                cycle++;
+                Console.Error.WriteLine($"── watch cycle {cycle} @ {DateTimeOffset.UtcNow:O} ──");
+                var next = DateTimeOffset.UtcNow.AddSeconds(seconds);
                 var code = await BuildScanCommand().Parse(["scan", "--quiet"]).InvokeAsync(cancellationToken: cancellationToken);
                 if (code == (int)PienExitCode.Cancelled)
                 {
                     return code;
                 }
 
+                Console.Error.WriteLine($"Next run at {next:O}");
+                var delay = next - DateTimeOffset.UtcNow;
+                if (delay < TimeSpan.Zero)
+                {
+                    delay = TimeSpan.FromSeconds(seconds);
+                }
+
                 try
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(seconds), cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -283,25 +502,25 @@ public static class Program
         return command;
     }
 
-    private static Command Stub(string name, string description)
-    {
-        var command = new Command(name, description);
-        command.SetAction((_, _) =>
-        {
-            Console.WriteLine($"{name}: requires stored scan state.");
-            return Task.FromResult((int)PienExitCode.Success);
-        });
-        return command;
-    }
-
-    internal static ServiceProvider BuildServices(string workingDirectory)
+    internal static ServiceProvider BuildServices(string workingDirectory, PienConfiguration? configuration = null)
         => new ServiceCollection()
             .AddPien(options =>
             {
                 options.WorkingDirectory = workingDirectory;
-                options.StateDirectory = Path.Combine(workingDirectory, ".pien");
-                options.AllowPrivateNetworks = true;
-                options.AllowedHosts = ["127.0.0.1", "localhost", "::1"];
+                options.StateDirectory = Path.Combine(workingDirectory, configuration?.Storage.StateDirectory.TrimStart('.', '/', '\\') is { Length: > 0 } relative
+                    ? configuration!.Storage.StateDirectory
+                    : ".pien");
+                if (!Path.IsPathRooted(options.StateDirectory))
+                {
+                    options.StateDirectory = Path.Combine(workingDirectory, configuration?.Storage.StateDirectory ?? ".pien");
+                }
+
+                options.AllowPrivateNetworks = configuration?.Network.AllowPrivateNetworks ?? true;
+                options.AllowedHosts = configuration?.Network.AllowedHosts is { Count: > 0 } hosts
+                    ? hosts
+                    : ["127.0.0.1", "localhost", "::1"];
+                options.WebhookUrl = configuration?.Notifications.WebhookUrl;
+                options.WebhookSecretReference = configuration?.Notifications.WebhookSecretReference;
             })
             .BuildServiceProvider();
 
