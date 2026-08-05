@@ -1,8 +1,15 @@
 using System.Net;
 
 using ARTR.Pien.Abstractions;
+using ARTR.Pien.Checks;
+using ARTR.Pien.Engine;
 using ARTR.Pien.Exceptions;
+using ARTR.Pien.Hosting;
+using ARTR.Pien.Policy;
+using ARTR.Pien.Scanning;
 using ARTR.Pien.Web.Network;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ARTR.Pien.IntegrationTests.Security;
 
@@ -16,6 +23,54 @@ public sealed class SsrfDestinationValidatorTests
         var options = new NetworkSafetyOptions { AllowPrivateNetworks = false, AllowedHosts = [] };
         await Assert.ThrowsAsync<TargetSafetyException>(() =>
             _validator.ValidateAsync(new Uri("http://127.0.0.1/"), options, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Engine_surfaces_TargetSafetyException_for_disallowed_private_target()
+    {
+        await using var provider = new ServiceCollection()
+            .AddPien(o =>
+            {
+                o.AllowPrivateNetworks = false;
+                o.AllowedHosts = [];
+                o.StateDirectory = Path.Combine(Path.GetTempPath(), "pien-ssrf-" + Guid.NewGuid().ToString("N"));
+            })
+            .BuildServiceProvider();
+
+        var engine = provider.GetRequiredService<IScanEngine>();
+        var definition = ScanDefinition.Create(new ScanDefinition
+        {
+            SchemaVersion = 1,
+            ProfileName = "quick",
+            Targets =
+            [
+                ScanTarget.Create(new ScanTarget
+                {
+                    Id = "ssrf",
+                    Kind = ScanTargetKind.Website,
+                    BaseUrl = new Uri("http://127.0.0.1:65530/"),
+                    Authorization = new TargetAuthorization(true),
+                }),
+            ],
+            Limits = ScanLimits.Default with { MaxCrawlPages = 1 },
+            EnabledCheckIds = [CheckIds.Http001],
+        });
+
+        await Assert.ThrowsAsync<TargetSafetyException>(() =>
+            engine.RunAsync(
+                definition,
+                new ScanEngineOptions
+                {
+                    Policy = Policy.Policy.Create(new Policy.Policy
+                    {
+                        Name = "balanced",
+                        Description = "t",
+                        FailOnSeverityAtOrAbove = Findings.FindingSeverity.Critical,
+                    }),
+                    WorkingDirectory = Directory.GetCurrentDirectory(),
+                    Network = new NetworkSafetyOptions { AllowPrivateNetworks = false, AllowedHosts = [] },
+                },
+                cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]

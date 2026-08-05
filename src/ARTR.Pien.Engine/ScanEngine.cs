@@ -165,6 +165,14 @@ public sealed class ScanEngine : IScanEngine
         {
             return Finalize(run, ScanRunStatus.Cancelled, []);
         }
+        catch (TargetSafetyException)
+        {
+            throw;
+        }
+        catch (AuthorizationException)
+        {
+            throw;
+        }
         catch (PienException)
         {
             return Finalize(run, ScanRunStatus.Failed, []);
