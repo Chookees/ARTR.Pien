@@ -1,9 +1,25 @@
 # Dependency research
 
 **Research date:** 2026-08-05  
-**Re-verified at lock time:** 2026-08-05 against `https://api.nuget.org/v3-flatcontainer/{id}/index.json`  
+**Re-verified:** 2026-08-05 via `https://api.nuget.org/v3-flatcontainer/{id}/index.json` and package pages  
 **SDK pin:** `global.json` → `10.0.302`  
 **Policy:** Prefer BCL / `Microsoft.Extensions.*`; Central Package Management; locked restore; NuGet audit; Apache-2.0-compatible redistribution.
+
+## Verification notes (architect pass)
+
+| Package | Locked in repo | Latest stable on NuGet (2026-08-05) | Notes |
+|---------|----------------|--------------------------------------|-------|
+| System.CommandLine | 2.0.10 | **2.0.10** (3.x preview-only) | MIT; keep on 2.x until 3.0 stable + ADR |
+| AngleSharp | 1.7.0 | **1.7.0** | MIT; 1.8.0 still beta |
+| NJsonSchema | 11.6.1 | **11.6.1** | MIT |
+| Microsoft.OpenApi | 3.9.0 | **3.9.0** | MIT |
+| Microsoft.OpenApi.YamlReader | 3.9.0 | **3.9.0** | MIT |
+| Microsoft.Extensions.Hosting (and siblings) | 10.0.10 | **10.0.10** | MIT; net10 line |
+| Microsoft.SourceLink.GitHub | 10.0.301 | aligned with SDK line | MIT |
+
+**JsonSchema.Net rejection (reconfirmed):** Upstream Open Source Maintenance Fee / binary EULA for revenue-generating NuGet binary use (effective 2026-02-01; see json-everything OSMF EULA). Source remains MIT if self-compiled; Pien rejects NuGet consumption to avoid redistribution/compliance ambiguity for future commercial ARTR products.
+
+**No vulnerability audit numbers are fabricated here.** CI enables `NuGetAudit=true` with `NuGetAuditLevel=low`; treat audit failures in CI as authoritative at build time.
 
 ## Direct production dependencies
 
@@ -30,9 +46,9 @@ Framework-provided (no package reference): `System.Text.Json`, `HttpClient`/`Soc
 
 | Package | Version seen | Reason |
 |---------|--------------|--------|
-| JsonSchema.Net | 9.4.0 | Upstream NuGet binary EULA / maintenance-fee obligation for revenue-generating use |
-| JsonPointer.Net | 7.0.2 | Same vendor EULA risk; implement RFC 6901 on `JsonNode` |
-| Sarif.Sdk | 5.6.0 | Newtonsoft + oversized OM for write-only SARIF 2.1.0 |
+| JsonSchema.Net | 9.x+ | Upstream NuGet binary EULA / OSMF maintenance-fee obligation for revenue-generating use |
+| JsonPointer.Net | same family | Same vendor EULA risk; implement RFC 6901 on `JsonNode` if needed |
+| Sarif.Sdk | 5.x | Newtonsoft + oversized OM for write-only SARIF 2.1.0 |
 | Testcontainers.* | any | Containers forbidden |
 | StackExchange.Redis / DB drivers | any | Forbidden |
 | Playwright / Puppeteer | any | Browser automation non-goal |

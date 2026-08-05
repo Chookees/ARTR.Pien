@@ -21,17 +21,20 @@ This document adapts Gerard J. Holzmann’s *Power of Ten* rules for managed C# 
 
 ## Analyzer IDs
 
-| Id | Title |
-|----|-------|
-| PIEN0001 | Method exceeds the allowed logical length |
-| PIEN0002 | Direct recursion is prohibited |
-| PIEN0003 | Unbounded loop construct detected |
-| PIEN0004 | goto statements are prohibited |
-| PIEN0005 | Unsafe code or pointer usage is prohibited |
-| PIEN0006 | async void is prohibited |
-| PIEN0007 | Synchronous blocking of asynchronous work is prohibited |
-| PIEN0008 | Task or ValueTask result is ignored |
-| PIEN0009 | Broad exception handling is not justified |
+| Id | Title | Status |
+|----|-------|--------|
+| PIEN0001 | Method exceeds the allowed logical length | Implemented |
+| PIEN0002 | Direct recursion is prohibited | Implemented |
+| PIEN0003 | Unbounded loop construct detected | Implemented |
+| PIEN0004 | goto statements are prohibited | Implemented |
+| PIEN0005 | Unsafe code or pointer usage is prohibited | Implemented |
+| PIEN0006 | async void is prohibited | Implemented |
+| PIEN0007 | Synchronous blocking of asynchronous work is prohibited | Implemented |
+| PIEN0008 | Task or ValueTask result is ignored | Implemented |
+| PIEN0009 | Broad exception handling is not justified | Implemented |
+| PIEN0010 | Unsupported preprocessor directive detected | Deferred — high false-positive risk; enforce via review |
+| PIEN0011 | Cancellation token ignored in bounded async operation | Planned if reliable patterns found; else API review |
+| PIEN0012 | User-controlled regex lacks safe options | Planned — prefer centralized `SafeRegex` helper + tests |
 
 Unreliable rules that would create excessive false positives are enforced via centralized APIs, architecture tests, and this document (ADR-008).
 
