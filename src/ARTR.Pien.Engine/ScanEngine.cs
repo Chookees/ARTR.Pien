@@ -173,6 +173,10 @@ public sealed class ScanEngine : IScanEngine
         {
             throw;
         }
+        catch (NotificationException)
+        {
+            throw;
+        }
         catch (PienException)
         {
             return Finalize(run, ScanRunStatus.Failed, []);

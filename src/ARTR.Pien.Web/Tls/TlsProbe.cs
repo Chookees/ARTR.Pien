@@ -54,10 +54,13 @@ public sealed class TlsProbe : ITlsProbe
 
         try
         {
+            // Accept untrusted certificates so authorized private/dev targets can be inspected;
+            // trust status is not a pass/fail gate here — fingerprint and expiry checks report separately.
             await ssl.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
             {
                 TargetHost = endpoint.HostHeader,
                 EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+                RemoteCertificateValidationCallback = static (_, _, _, _) => true,
             }, timeoutCts.Token).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

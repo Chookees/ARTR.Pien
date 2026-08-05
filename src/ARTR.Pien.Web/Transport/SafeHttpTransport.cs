@@ -104,7 +104,7 @@ public sealed class SafeHttpTransport : ISafeHttpTransport, IDisposable
         IReadOnlyList<Uri> redirectChain,
         CancellationToken cancellationToken)
     {
-        var handler = CreateHandler(endpoint);
+        var handler = CreateHandler(endpoint, _options);
         using var client = new HttpClient(handler, disposeHandler: true)
         {
             Timeout = Timeout.InfiniteTimeSpan,
@@ -189,7 +189,7 @@ public sealed class SafeHttpTransport : ISafeHttpTransport, IDisposable
         return headers;
     }
 
-    private static SocketsHttpHandler CreateHandler(ValidatedEndpoint endpoint)
+    private static SocketsHttpHandler CreateHandler(ValidatedEndpoint endpoint, NetworkSafetyOptions options)
     {
         var pinned = endpoint.Addresses[0];
         return new SocketsHttpHandler
@@ -214,6 +214,10 @@ public sealed class SafeHttpTransport : ISafeHttpTransport, IDisposable
             {
                 EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
                 TargetHost = endpoint.HostHeader,
+                // Authorized private/loopback scans may use self-signed certificates.
+                RemoteCertificateValidationCallback = options.AllowPrivateNetworks
+                    ? static (_, _, _, _) => true
+                    : null,
             },
         };
     }
