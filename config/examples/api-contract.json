@@ -38,7 +38,7 @@
           "expectedStatus": { "min": 200, "max": 299 },
           "jsonAssertions": [
             {
-              "pointer": "",
+              "pointer": "/",
               "op": "type",
               "typeName": "array"
             }

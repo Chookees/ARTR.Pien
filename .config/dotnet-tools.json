@@ -5,11 +5,7 @@
     "dotnet-reportgenerator-globaltool": {
       "version": "5.5.11",
       "commands": [
-        {
-          "name": "reportgenerator",
-          "entryPoint": "ReportGenerator.dll",
-          "runner": "dotnet"
-        }
+        "reportgenerator"
       ]
     }
   }
