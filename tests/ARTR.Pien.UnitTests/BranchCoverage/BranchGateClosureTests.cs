@@ -966,10 +966,12 @@ public sealed class BranchGateClosureTests
                     new PienApiCaseConfiguration { Id = "empty-method", Method = " ", Path = "/a" },
                     new PienApiCaseConfiguration { Id = "head", Method = "HEAD", Path = "/h" },
                     new PienApiCaseConfiguration { Id = "options", Method = "OPTIONS", Path = "/o" },
+                    new PienApiCaseConfiguration { Id = "post", Method = "POST", Path = "/p", AllowNonIdempotent = true, Body = "{}" },
                     new PienApiCaseConfiguration { Id = "put", Method = "PUT", Path = "/p", AllowNonIdempotent = true, Body = "{}" },
                     new PienApiCaseConfiguration { Id = "patch", Method = "PATCH", Path = "/p", AllowNonIdempotent = true },
                     new PienApiCaseConfiguration { Id = "delete", Method = "DELETE", Path = "/d", AllowNonIdempotent = true },
-                    new PienApiCaseConfiguration { Id = "trace", Method = "TRACE", Path = "/t" },
+                    new PienApiCaseConfiguration { Id = "trace", Method = "TRACE", Path = "/t", AllowNonIdempotent = true },
+                    new PienApiCaseConfiguration { Id = "blocked-post", Method = "POST", Path = "/blocked", AllowNonIdempotent = false },
                     new PienApiCaseConfiguration
                     {
                         Id = "query",

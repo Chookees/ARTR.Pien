@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>pien</AssemblyName>
+    <AssemblyName>ARTR.Pien.Cli</AssemblyName>
     <RootNamespace>ARTR.Pien.Cli</RootNamespace>
     <Description>ARTR Pien command-line interface.</Description>
     <PackAsTool>true</PackAsTool>
@@ -12,6 +12,11 @@
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ARTR.Pien.FunctionalTests" />
+    <InternalsVisibleTo Include="ARTR.Pien.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>

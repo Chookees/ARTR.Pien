@@ -4,6 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 using ARTR.Pien.Abstractions;
+using ARTR.Pien.Exceptions;
 using ARTR.Pien.Probing;
 using ARTR.Pien.Scanning;
 using ARTR.Pien.Web.Network;
@@ -39,6 +40,12 @@ public sealed class HttpsTlsProbeTests : IAsyncLifetime
         {
             ctx.Response.ContentType = "text/plain";
             await ctx.Response.WriteAsync("secure");
+        });
+        app.MapGet("/to-http", ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status302Found;
+            ctx.Response.Headers.Location = "http://127.0.0.1/";
+            return Task.CompletedTask;
         });
         app.MapGet("/big", async ctx =>
         {
@@ -109,11 +116,22 @@ public sealed class HttpsTlsProbeTests : IAsyncLifetime
             {
                 Uri = new Uri(_baseUri!, "/big"),
                 Method = ProbeMethod.Get,
-                MaxResponseBodyBytes = 128,
+                MaxResponseBodyBytes = 1,
             }),
             context,
             TestContext.Current.CancellationToken);
         Assert.True(truncated.BodyTruncated);
+        Assert.Equal(1, truncated.Body.Length);
+
+        await Assert.ThrowsAsync<TargetSafetyException>(() => transport.SendAsync(
+            ProbeRequest.Create(new ProbeRequest
+            {
+                Uri = new Uri(_baseUri!, "/to-http"),
+                Method = ProbeMethod.Get,
+                MaxResponseBodyBytes = 1024,
+            }),
+            context,
+            TestContext.Current.CancellationToken));
 
         var posted = await transport.SendAsync(
             ProbeRequest.Create(new ProbeRequest
@@ -127,6 +145,10 @@ public sealed class HttpsTlsProbeTests : IAsyncLifetime
             context,
             TestContext.Current.CancellationToken);
         Assert.Equal("hello", Encoding.UTF8.GetString(posted.Body.Span));
+
+        await Assert.ThrowsAsync<TlsFailureException>(() =>
+            tls.ProbeAsync(new Uri("http://127.0.0.1/"), ScanLimits.Default, TestContext.Current.CancellationToken));
+        Assert.Throws<ArgumentNullException>(() => new TlsProbe(null!));
     }
 
     private static X509Certificate2 CreateSelfSigned()
