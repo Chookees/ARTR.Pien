@@ -48,8 +48,8 @@ Root file: **`pien.json`** (`schemaVersion: 1`).
 
 Under [`config/examples/`](../../config/examples/):
 
-- `quick-website.json`
-- `complete-website.json`
+- `loopback-website.json` — **validate-ready** (`confirmed: true`, private network allowlist for `127.0.0.1`)
+- `quick-website.json` / `complete-website.json` — placeholders with `confirmed: false` (intentional; `validate` exits 3 until confirmed)
 - `api-contract.json`
 - `authenticated-api.json`
 - `watch-mode.json`

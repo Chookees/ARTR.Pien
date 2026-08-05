@@ -9,7 +9,7 @@
       "url": "https://www.example.com/",
       "authorization": {
         "confirmed": false,
-        "notes": "Placeholder. Confirm ownership before scanning."
+        "notes": "PLACEHOLDER: intentional confirmed=false. pien validate/scan exit 3 until confirmed=true. For a validate-ready sample use loopback-website.json."
       }
     }
   ],

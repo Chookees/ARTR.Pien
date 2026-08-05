@@ -34,6 +34,14 @@ dotnet run --project src/ARTR.Pien.Cli -c Release -- validate
 dotnet run --project src/ARTR.Pien.Cli -c Release -- scan --quiet
 ```
 
+Or validate a shipped loopback sample (exit 0 without editing placeholders):
+
+```powershell
+dotnet run --project src/ARTR.Pien.Cli -c Release -- validate --config config/examples/loopback-website.json
+```
+
+Placeholder examples under `config/examples/quick-website.json` and `complete-website.json` keep `authorization.confirmed=false` on purpose — `validate`/`scan` require `confirmed=true`. See [docs/HowToUse.md](docs/HowToUse.md).
+
 Configuration: `pien.json` (schema under `config/schemas/`). State: `.pien/`.
 
 ## Security checklist (operators)

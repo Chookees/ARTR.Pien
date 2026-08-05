@@ -12,7 +12,7 @@ Pien probes only **authorized** targets. This is an ethical and safety gate, not
 4. Private/link-local/metadata addresses require both:
    - `network.allowPrivateNetworks: true`
    - host present in `network.allowedHosts`
-5. Public third-party hosts must not be scanned without explicit permission. Examples use `example.com` with `confirmed: false` as placeholders.
+5. Public third-party hosts must not be scanned without explicit permission. Shipped starters (`quick-website.json`, `complete-website.json`) use `example.com` with `confirmed: false` as placeholders — `pien validate` and `pien scan` intentionally fail until you set `confirmed: true`. Use `loopback-website.json` (or `api-contract.json` / `watch-mode.json`) for a validate-ready sample.
 6. CLI `--target` does not bypass authorization or SSRF destination validation.
 7. Redirects revalidate destinations (ADR-012). Cross-host redirect to disallowed host fails closed.
 

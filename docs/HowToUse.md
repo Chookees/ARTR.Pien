@@ -47,8 +47,14 @@ dotnet run --project src/ARTR.Pien.Cli -c Release -- init --website --force
 - Examples: [`config/examples/`](../config/examples/)
 - Reference: [ConfigurationReference.md](configuration/ConfigurationReference.md)
 
+**`validate` / `scan` require `authorization.confirmed=true` for every target.** Placeholder starters such as [`quick-website.json`](../config/examples/quick-website.json) and [`complete-website.json`](../config/examples/complete-website.json) intentionally ship with `confirmed: false` so they cannot probe `example.com` by accident — `pien validate` exits **3** until you confirm. For a validate-ready sample (exit 0), use [`loopback-website.json`](../config/examples/loopback-website.json).
+
 ```powershell
-dotnet run --project src/ARTR.Pien.Cli -c Release -- validate
+# Placeholder (expected exit 3 until you set confirmed=true):
+dotnet run --project src/ARTR.Pien.Cli -c Release -- validate --config config/examples/quick-website.json
+
+# Validate-ready loopback sample (exit 0):
+dotnet run --project src/ARTR.Pien.Cli -c Release -- validate --config config/examples/loopback-website.json
 ```
 
 Precedence: defaults → profile → `pien.json` → `ARTR_PIEN_*` → CLI. Details: [ProfilesAndPolicies.md](configuration/ProfilesAndPolicies.md).
@@ -68,13 +74,14 @@ dotnet run --project src/ARTR.Pien.Cli -c Release -- scan --profile ci --fail-on
 
 ## Website scans
 
-Edit `authorization.confirmed` only for systems you may test.
+Edit `authorization.confirmed` only for systems you may test. Until `confirmed` is `true`, both `validate` and `scan` refuse the config (exit 3 / 4).
 
 ```powershell
 dotnet run --project src/ARTR.Pien.Cli -c Release -- scan --format console,json --output artifacts/pien
 ```
 
-Example starter: [`config/examples/quick-website.json`](../config/examples/quick-website.json).
+- Placeholder shape (will not validate until confirmed): [`quick-website.json`](../config/examples/quick-website.json)
+- Validate-ready loopback: [`loopback-website.json`](../config/examples/loopback-website.json) (`confirmed: true`, `allowPrivateNetworks`, `allowedHosts` for `127.0.0.1`)
 
 ---
 
@@ -194,7 +201,8 @@ Use OS schedulers (Windows Task Scheduler, cron, systemd timer) to invoke `pien 
 
 | Symptom | Action |
 |---------|--------|
-| Exit 3 | `pien validate`; check schemaVersion and URLs |
+| Exit 3 on starter examples | Expected when `confirmed: false` (placeholders). Set `confirmed: true` or use `loopback-website.json` |
+| Exit 3 | `pien validate`; check schemaVersion, URLs, and `authorization.confirmed` |
 | Exit 4 | Confirm `authorization.confirmed`; allowlist hosts |
 | Exit 5 | Target reachability; `pien doctor` |
 | Exit 8 | Disk permissions for `.pien` / output dir |

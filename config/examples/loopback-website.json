@@ -4,18 +4,18 @@
   "profile": "quick",
   "targets": [
     {
-      "id": "example-site",
+      "id": "loopback-site",
       "kind": "website",
-      "url": "https://example.com/",
+      "url": "http://127.0.0.1:5088/",
       "authorization": {
-        "confirmed": false,
-        "notes": "PLACEHOLDER: intentional confirmed=false. pien validate/scan exit 3 until confirmed=true. For a validate-ready sample use loopback-website.json."
+        "confirmed": true,
+        "notes": "Validate-ready loopback sample. Safe for pien validate / local scan against a loopback server you control."
       }
     }
   ],
   "network": {
-    "allowPrivateNetworks": false,
-    "allowedHosts": ["example.com"],
+    "allowPrivateNetworks": true,
+    "allowedHosts": ["127.0.0.1", "localhost", "::1"],
     "maxRedirects": 5
   },
   "crawl": {
