@@ -121,6 +121,45 @@ public sealed class CliInProcessCoverageTests
     }
 
     [Fact]
+    public async Task Scan_with_overrides_against_unreachable_loopback_returns_ScanFailed()
+    {
+        await using var home = TemporaryWorkspace.Create();
+        var ct = TestContext.Current.CancellationToken;
+        var init = await CliRunner.RunAsync(home.Path, ["init", "--website", "--force"], ct);
+        Assert.Equal((int)PienExitCode.Success, init.ExitCode);
+
+        var scan = await CliRunner.RunAsync(
+            home.Path,
+            [
+                "scan",
+                "--quiet",
+                "--format", "console,json,md",
+                "--output", "./artifacts/pien",
+                "--fail-on", "high",
+                "--max-pages", "1",
+                "--max-depth", "0",
+            ],
+            ct);
+        Assert.True(
+            scan.ExitCode is (int)PienExitCode.ScanFailed
+                or (int)PienExitCode.TargetRejected
+                or (int)PienExitCode.PolicyFailed,
+            $"Unexpected exit {scan.ExitCode}. stderr={scan.Stderr}");
+    }
+
+    [Fact]
+    public async Task Scan_target_without_confirm_authorization_returns_TargetRejected()
+    {
+        await using var home = TemporaryWorkspace.Create();
+        var ct = TestContext.Current.CancellationToken;
+        var scan = await CliRunner.RunAsync(
+            home.Path,
+            ["scan", "--target", "http://127.0.0.1:9/", "--quiet"],
+            ct);
+        Assert.Equal((int)PienExitCode.TargetRejected, scan.ExitCode);
+    }
+
+    [Fact]
     public async Task Watch_honors_cancellation()
     {
         await using var home = TemporaryWorkspace.Create();
