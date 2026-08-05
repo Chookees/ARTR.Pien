@@ -18,7 +18,7 @@ jobs:
       - run: dotnet build ARTR.Pien.sln -c Release
       - run: bash build/Publish.sh Release
       - run: bash build/PackageSource.sh
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             artifacts/publish/**
