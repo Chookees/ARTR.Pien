@@ -444,10 +444,12 @@ public sealed class CookiePrefixRulesCheck : ICheck
         }
 
         var name = cookie.Split('=', 2)[0].Trim();
-        var hasSecure = cookie.Contains("Secure", StringComparison.OrdinalIgnoreCase);
-        var hasDomain = cookie.Contains("Domain=", StringComparison.OrdinalIgnoreCase);
-        var pathExactRoot = cookie.Contains("Path=/", StringComparison.OrdinalIgnoreCase) &&
-                            !SafeRegex.IsMatch(cookie, @"Path=/[^;\s]", context.Limits);
+        var attributePart = cookie.Contains(';', StringComparison.Ordinal)
+            ? cookie[(cookie.IndexOf(';') + 1)..]
+            : string.Empty;
+        var hasSecure = SafeRegex.IsMatch(attributePart, @"(^|;)\s*Secure\s*(;|$)", context.Limits, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        var hasDomain = attributePart.Contains("Domain=", StringComparison.OrdinalIgnoreCase);
+        var pathExactRoot = SafeRegex.IsMatch(attributePart, @"(^|;)\s*Path=/\s*(;|$)", context.Limits, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
         if (name.StartsWith("__Host-", StringComparison.OrdinalIgnoreCase))
         {
