@@ -32,11 +32,11 @@ This document adapts Gerard J. Holzmann’s *Power of Ten* rules for managed C# 
 | PIEN0007 | Synchronous blocking of asynchronous work is prohibited | Implemented |
 | PIEN0008 | Task or ValueTask result is ignored | Implemented |
 | PIEN0009 | Broad exception handling is not justified | Implemented |
-| PIEN0010 | Unsupported preprocessor directive detected | Deferred — high false-positive risk; enforce via review |
-| PIEN0011 | Cancellation token ignored in bounded async operation | Planned if reliable patterns found; else API review |
-| PIEN0012 | User-controlled regex lacks safe options | Planned — prefer centralized `SafeRegex` helper + tests |
+| PIEN0010 | Unsupported preprocessor directive detected | **Deferred** (ADR-030) — high false-positive risk; enforce via review |
+| PIEN0011 | Cancellation token ignored in bounded async operation | **Deferred** (ADR-030) — API / host-loop review |
+| PIEN0012 | User-controlled regex lacks safe options | **Deferred** (ADR-030) — use centralized `SafeRegex` + timeout limits |
 
-Unreliable rules that would create excessive false positives are enforced via centralized APIs, architecture tests, and this document (ADR-008 / ADR-026).
+Unreliable rules that would create excessive false positives are enforced via centralized APIs, architecture tests, and this document (ADR-008 / ADR-026 / **ADR-030**). See also `docs/development/Analyzers.md`.
 
 ## Logical line counting (PIEN0001)
 

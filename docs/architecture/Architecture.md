@@ -42,7 +42,7 @@ Orchestration lives in `ARTR.Pien.Engine.ScanEngine`. Transport and crawl live i
 | `ARTR.Pien.Storage` | Local filesystem store under `.pien/` |
 | `ARTR.Pien.Hosting` | DI composition (`AddPien`), config loader, secret resolver wiring |
 | `ARTR.Pien.Cli` | `pien` entry point (`System.CommandLine`) |
-| `ARTR.Pien.CodeAnalysis` | Roslyn analyzers **PIEN0001–PIEN0009** implemented; **PIEN0010–PIEN0012** reserved/deferred (see PowerOfTen.md) |
+| `ARTR.Pien.CodeAnalysis` | Roslyn analyzers **PIEN0001–PIEN0009** implemented; **PIEN0010–PIEN0012** deferred (ADR-030, PowerOfTen.md, Analyzers.md) |
 | Samples / benchmarks / tests | Loopback-only verification; no containers |
 
 ## 4. Acyclic dependency graph
