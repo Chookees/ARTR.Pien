@@ -10,17 +10,23 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/setup-dotnet@d4c94342e560b87944246f3c303f5b3016e677d9 # v5.0.0
         with:
           dotnet-version: "10.0.302"
+      - name: Restore tools
+        run: dotnet tool restore
       - name: Restore
         run: dotnet restore ARTR.Pien.sln --locked-mode
+      - name: Format
+        run: dotnet format ARTR.Pien.sln --verify-no-changes
       - name: Build
         run: dotnet build ARTR.Pien.sln -c Release --no-restore
-      - name: Test
-        run: dotnet test ARTR.Pien.sln -c Release --no-build --collect:"XPlat Code Coverage"
+      - name: Test with coverage gate
+        run: pwsh -File build/Test.ps1 -Configuration Release
       - name: Smoke
         run: |
           dotnet run --project src/ARTR.Pien.Cli -c Release --no-build -- version
+          dotnet run --project src/ARTR.Pien.Cli -c Release --no-build -- doctor
           dotnet run --project src/ARTR.Pien.Cli -c Release --no-build -- list-checks
+          dotnet run --project src/ARTR.Pien.Cli -c Release --no-build -- explain PIEN-HTTP-001
