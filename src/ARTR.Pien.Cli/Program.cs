@@ -127,6 +127,12 @@ public static class Program
                 Console.Error.WriteLine("  hint: Fix pien.json.");
                 return (int)PienExitCode.InvalidConfiguration;
             }
+            catch (AuthorizationException ex)
+            {
+                Console.Error.WriteLine($"error: {ex.Message}");
+                Console.Error.WriteLine("  hint: Set authorization.confirmed=true.");
+                return (int)PienExitCode.InvalidConfiguration;
+            }
         });
         return command;
     }
@@ -164,7 +170,14 @@ public static class Program
         {
             await using var provider = BuildServices(Directory.GetCurrentDirectory());
             var id = parseResult.GetValue(idArg)!;
-            var check = provider.GetRequiredService<ICheckCatalog>().Get(CheckId.Create(id));
+            if (!CheckId.TryCreate(id, out var checkId))
+            {
+                Console.Error.WriteLine($"error: Invalid check id '{id}'.");
+                Console.Error.WriteLine("  hint: IDs look like PIEN-HTTP-001. Run `pien list-checks`.");
+                return (int)PienExitCode.InvalidArguments;
+            }
+
+            var check = provider.GetRequiredService<ICheckCatalog>().Get(checkId);
             if (check is null)
             {
                 Console.Error.WriteLine($"error: Unknown check '{id}'.");

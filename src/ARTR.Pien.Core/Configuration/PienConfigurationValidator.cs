@@ -194,7 +194,7 @@ public static class PienConfigurationValidator
 
             if (!target.Authorization.Confirmed)
             {
-                results.Add(new ValidationResult($"Target '{target.Id}' requires authorization.confirmed=true."));
+                throw new AuthorizationException($"Target '{target.Id}' requires authorization.confirmed=true.");
             }
 
             if (!IsKnownKind(target.Kind))
@@ -578,18 +578,31 @@ public sealed class JsonConfigLoader : IConfigLoader
         ArgumentException.ThrowIfNullOrWhiteSpace(request.WorkingDirectory);
 
         var configuration = new PienConfiguration();
-        var path = string.IsNullOrWhiteSpace(request.ConfigPath)
-            ? Path.Combine(request.WorkingDirectory, "pien.json")
-            : request.ConfigPath;
+        var explicitPath = !string.IsNullOrWhiteSpace(request.ConfigPath);
+        var path = explicitPath
+            ? request.ConfigPath!
+            : Path.Combine(request.WorkingDirectory, "pien.json");
+
+        if (explicitPath && !File.Exists(path))
+        {
+            throw new ConfigurationException($"Config file not found: {path}");
+        }
 
         if (File.Exists(path))
         {
-            await using var stream = File.OpenRead(path);
-            var loaded = await JsonSerializer.DeserializeAsync<PienConfiguration>(stream, SerializerOptions, cancellationToken)
-                .ConfigureAwait(false);
-            if (loaded is not null)
+            try
             {
-                configuration = loaded;
+                await using var stream = File.OpenRead(path);
+                var loaded = await JsonSerializer.DeserializeAsync<PienConfiguration>(stream, SerializerOptions, cancellationToken)
+                    .ConfigureAwait(false);
+                if (loaded is not null)
+                {
+                    configuration = loaded;
+                }
+            }
+            catch (JsonException ex)
+            {
+                throw new ConfigurationException($"Config JSON is invalid: {ex.Message}", ex);
             }
         }
 

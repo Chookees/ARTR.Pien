@@ -50,7 +50,7 @@ public sealed class PienConfigurationValidatorTests
             ],
         };
 
-        Assert.Throws<ARTR.Pien.Exceptions.ConfigurationException>(
+        Assert.Throws<ARTR.Pien.Exceptions.AuthorizationException>(
             () => PienConfigurationValidator.Validate(configuration, Directory.GetCurrentDirectory()));
     }
 
