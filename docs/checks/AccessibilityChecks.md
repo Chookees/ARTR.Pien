@@ -10,10 +10,10 @@ Deterministic **static HTML** fundamentals only. **Not** WCAG certification.
 | ID | Impl | Evaluates |
 |----|------|-----------|
 | PIEN-A11Y-001 | **I** | `html[lang]`, document title, basic img alt presence |
-| PIEN-A11Y-002 | **D** | Form controls without associated labels |
-| PIEN-A11Y-003 | **D** | Empty links / buttons |
-| PIEN-A11Y-004 | **D** | Heading-level jumps |
-| PIEN-A11Y-005 | **D** | Positive `tabindex` observation (Info) |
+| PIEN-A11Y-002 | **I** | Form controls without associated labels |
+| PIEN-A11Y-003 | **I** | Empty links / buttons |
+| PIEN-A11Y-004 | **I** | Heading-level jumps |
+| PIEN-A11Y-005 | **I** | Positive `tabindex` observation (Info) |
 
 ## Limitations (must appear in `pien explain` and docs)
 
