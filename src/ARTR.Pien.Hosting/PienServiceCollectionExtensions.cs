@@ -108,13 +108,25 @@ public static class PienServiceCollectionExtensions
         services.AddSingleton<ICheck, AccessibilityFundamentalsCheck>();
         services.AddSingleton<ICheck, CookieAttributeCheck>();
         services.AddSingleton<ICheck, SeoFundamentalsCheck>();
+        services.AddSingleton<ICheck, SeoMetadataBudgetCheck>();
+        services.AddSingleton<ICheck, SeoIndexabilityCheck>();
+        services.AddSingleton<ICheck, SeoRobotsSitemapCheck>();
         services.AddSingleton<ICheck, LinkSafetyCheck>();
+        services.AddSingleton<ICheck, LinkInternalCrawlCheck>();
+        services.AddSingleton<ICheck, LinkTextCheck>();
         services.AddSingleton<ICheck, PerformanceBudgetCheck>();
+        services.AddSingleton<ICheck, PerformanceTimingBudgetCheck>();
+        services.AddSingleton<ICheck, PerformanceBodySizeBudgetCheck>();
         services.AddSingleton<ICheck, TlsFundamentalsCheck>();
         services.AddSingleton<ICheck, TlsExpirationCheck>();
+        services.AddSingleton<ICheck, TlsProtocolStrengthCheck>();
         services.AddSingleton<ICheck, ApiContractCheck>();
         services.AddSingleton<ICheck, OpenApiDocumentCheck>();
+        services.AddSingleton<ICheck, OpenApiHygieneCheck>();
+        services.AddSingleton<ICheck, OpenApiResponseConformanceCheck>();
+        services.AddSingleton<ICheck, OpenApiCoverageCheck>();
         services.AddSingleton<ICheck, BaselineChangeCheck>();
+        services.AddSingleton<ICheck, BaselineVolatilityCheck>();
         return services;
     }
 }
