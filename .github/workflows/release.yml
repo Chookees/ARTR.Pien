@@ -5,14 +5,17 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
         with:
           dotnet-version: "10.0.302"
       - run: dotnet build ARTR.Pien.sln -c Release

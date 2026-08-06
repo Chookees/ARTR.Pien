@@ -5,13 +5,19 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-dotnet@d4c94342e560b87944246f3c303f5b3016e677d9 # v5.0.0
+      # Pin must be a real commit on actions/setup-dotnet (v5.0.0).
+      # Previous pin d4c94342e560b879... was a typo and does not exist.
+      - uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
         with:
           dotnet-version: "10.0.302"
       - name: Restore tools

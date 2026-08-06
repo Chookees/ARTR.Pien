@@ -7,20 +7,30 @@ on:
     branches: [main]
   schedule:
     - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    # security-events: upload SARIF / create code-scanning alerts
+    # actions: read: required by codeql-action for workflow-run metadata / telemetry
     permissions:
-      security-events: write
       contents: read
+      actions: read
+      security-events: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: github/codeql-action/init@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@fca7ace96b7d713c7035871441bd52efbe39e27e # codeql-action v3.28.19
         with:
           languages: csharp
-      - uses: actions/setup-dotnet@v4
+          build-mode: manual
+      - uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
         with:
           dotnet-version: "10.0.302"
-      - run: dotnet build ARTR.Pien.sln -c Release
-      - uses: github/codeql-action/analyze@v3
+      - name: Build
+        run: |
+          dotnet restore ARTR.Pien.sln --locked-mode
+          dotnet build ARTR.Pien.sln -c Release --no-restore
+      - uses: github/codeql-action/analyze@fca7ace96b7d713c7035871441bd52efbe39e27e # codeql-action v3.28.19
+        with:
+          category: "/language:csharp"
