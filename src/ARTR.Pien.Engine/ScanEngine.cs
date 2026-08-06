@@ -623,18 +623,43 @@ public sealed class ScanEngine : IScanEngine
 
     private static Uri ResolveUri(Uri baseUrl, string path, Dictionary<string, JsonElement>? query)
     {
-        var uri = Uri.TryCreate(path, UriKind.Absolute, out var absolute)
-            ? absolute
-            : new Uri(baseUrl, path.StartsWith('/') ? path : "/" + path);
+        // On Linux/macOS, Uri.TryCreate("/health", Absolute) succeeds as file:///health.
+        // Only treat http/https absolute URLs as override targets; otherwise resolve against baseUrl.
+        Uri uri;
+        if (Uri.TryCreate(path, UriKind.Absolute, out var absolute) &&
+            absolute.Scheme is "http" or "https")
+        {
+            uri = absolute;
+        }
+        else
+        {
+            var relative = string.IsNullOrWhiteSpace(path)
+                ? "/"
+                : path.StartsWith('/') ? path : "/" + path;
+            uri = new Uri(baseUrl, relative);
+        }
+
         if (query is null || query.Count == 0)
         {
             return uri;
         }
 
-        var builder = new UriBuilder(uri);
-        builder.Query = string.Join('&', query.Select(kv => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value.ToString())}"));
+        var builder = new UriBuilder(uri)
+        {
+            Query = string.Join(
+                '&',
+                query.Select(kv => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(JsonElementToQueryValue(kv.Value))}")),
+        };
         return builder.Uri;
     }
+
+    private static string JsonElementToQueryValue(JsonElement value)
+        => value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString() ?? string.Empty,
+            JsonValueKind.Null => string.Empty,
+            _ => value.ToString(),
+        };
 }
 
 /// <summary>

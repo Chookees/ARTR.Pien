@@ -12,9 +12,10 @@ on:
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    # Requires Code scanning enabled in the repo:
-    # Settings → Code security → Code scanning → Set up (or enable default setup / advanced).
-    # Public repos: free. Private repos: needs GitHub Advanced Security.
+    # CodeQL analysis works without Code Scanning enabled.
+    # SARIF upload to the Security tab requires enabling Code scanning first:
+    #   https://github.com/Chookees/ARTR.Pien/settings/security_analysis
+    # Until then, upload=false and SARIF is kept as a workflow artifact.
     permissions:
       contents: read
       actions: read
@@ -22,7 +23,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Install the SDK before CodeQL init so the tracer can wrap the toolchain.
       - uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
         with:
           dotnet-version: "10.0.302"
@@ -37,6 +37,18 @@ jobs:
           dotnet restore ARTR.Pien.sln --locked-mode
           dotnet build ARTR.Pien.sln -c Release --no-restore /p:UseSharedCompilation=false
 
-      - uses: github/codeql-action/analyze@c4dd10e44af883a891fe31ced449bcb4a6728b9b # v3.37.6
+      - name: Perform CodeQL Analysis
+        id: analyze
+        uses: github/codeql-action/analyze@c4dd10e44af883a891fe31ced449bcb4a6728b9b # v3.37.6
         with:
           category: "/language:csharp"
+          output: ${{ runner.temp }}/codeql-sarif
+          # Flip to true after enabling Code scanning in repository settings.
+          upload: false
+
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: codeql-csharp-sarif
+          path: ${{ runner.temp }}/codeql-sarif
+          if-no-files-found: warn
