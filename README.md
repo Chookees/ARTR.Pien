@@ -1,5 +1,9 @@
 # ARTR Pien
 
+[![CI](https://github.com/Chookees/ARTR.Pien/actions/workflows/ci.yml/badge.svg)](https://github.com/Chookees/ARTR.Pien/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Chookees/ARTR.Pien/actions/workflows/codeql.yml/badge.svg)](https://github.com/Chookees/ARTR.Pien/actions/workflows/codeql.yml)
+[![Coverage](https://img.shields.io/badge/coverage-%E2%89%A590%25_line%2Fbranch-brightgreen)](docs/architecture/adr/ADR-029-coverage.md)
+
 **PIEN — Proba. Inspice. Examina. Nuntia.**  
 **Test. Inspect. Examine. Report.**
 
