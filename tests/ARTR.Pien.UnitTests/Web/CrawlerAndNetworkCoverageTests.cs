@@ -104,6 +104,71 @@ public sealed class CrawlerAndNetworkCoverageTests
     }
 
     [Fact]
+    public async Task Crawler_probes_external_links_when_enabled_and_respects_cap()
+    {
+        var baseUri = new Uri("http://127.0.0.1/");
+        var externalA = "https://cdn.example/a.js";
+        var externalB = "https://cdn.example/b.js";
+        var externalC = "https://cdn.example/c.js";
+        var transport = new MapTransport(new Dictionary<string, Func<ProbeResult>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["/"] = () => Html(
+                baseUri,
+                $"""
+                <html><body>
+                <a href="{externalA}">a</a>
+                <a href="{externalB}">b</a>
+                <a href="{externalC}">c</a>
+                <a href="/about">about</a>
+                </body></html>
+                """),
+            ["/about"] = () => Html(new Uri(baseUri, "/about"), "<html><body>about</body></html>"),
+            [externalA] = () => ProbeResult.Create(new ProbeResult
+            {
+                FinalUri = new Uri(externalA),
+                StatusCode = HttpStatusCode.OK,
+                Duration = TimeSpan.FromMilliseconds(1),
+            }),
+            [externalB] = () => ProbeResult.Create(new ProbeResult
+            {
+                FinalUri = new Uri(externalB),
+                StatusCode = HttpStatusCode.NotFound,
+                Duration = TimeSpan.FromMilliseconds(1),
+            }),
+            [externalC] = () => ProbeResult.Create(new ProbeResult
+            {
+                FinalUri = new Uri(externalC),
+                StatusCode = HttpStatusCode.OK,
+                Duration = TimeSpan.FromMilliseconds(1),
+            }),
+        });
+
+        var crawler = new WebsiteCrawler(transport, new NetworkSafetyOptions { AllowPrivateNetworks = true, AllowedHosts = ["127.0.0.1"] });
+        var pages = new List<CrawlPage>();
+        await foreach (var page in crawler.CrawlAsync(
+            Target(),
+            ScanLimits.Default with
+            {
+                MaxCrawlPages = 10,
+                MaxCrawlDepth = 2,
+                MaxLinksPerPage = 20,
+                RespectRobotsTxt = false,
+                UseSitemap = false,
+                CheckExternalLinks = true,
+                MaxExternalLinks = 2,
+            },
+            TestContext.Current.CancellationToken))
+        {
+            pages.Add(page);
+        }
+
+        var external = pages.Where(p => !string.Equals(p.Uri.Host, "127.0.0.1", StringComparison.OrdinalIgnoreCase)).ToArray();
+        Assert.Equal(2, external.Length);
+        Assert.All(external, p => Assert.Equal(2, p.Depth));
+        Assert.Contains(pages, p => p.Uri.AbsolutePath.Contains("about", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Ip_classifier_covers_private_and_v6()
     {
         Assert.True(IpAddressClassifier.IsLoopback(IPAddress.Loopback));
