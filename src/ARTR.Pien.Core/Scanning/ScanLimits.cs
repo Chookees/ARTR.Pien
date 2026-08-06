@@ -35,6 +35,24 @@ public sealed record ScanLimits
     /// <summary>Maximum links processed per page. Default: 1,000.</summary>
     public int MaxLinksPerPage { get; init; } = 1_000;
 
+    /// <summary>When true, crawl expansion stays on the target host. Default: true.</summary>
+    public bool SameOriginOnly { get; init; } = true;
+
+    /// <summary>When true, honor robots.txt Disallow rules. Default: true.</summary>
+    public bool RespectRobotsTxt { get; init; } = true;
+
+    /// <summary>When true, seed the crawl from sitemap.xml when available. Default: true.</summary>
+    public bool UseSitemap { get; init; } = true;
+
+    /// <summary>
+    /// When true, probe external http(s) links discovered on same-origin pages without expanding them further.
+    /// Default: false.
+    /// </summary>
+    public bool CheckExternalLinks { get; init; }
+
+    /// <summary>Maximum external link probes when <see cref="CheckExternalLinks"/> is enabled. Default: 50.</summary>
+    public int MaxExternalLinks { get; init; } = 50;
+
     /// <summary>Maximum DNS addresses processed. Default: 16.</summary>
     public int MaxDnsAddresses { get; init; } = 16;
 
@@ -100,6 +118,7 @@ public sealed record ScanLimits
         EnsureInRange(nameof(MaxCrawlDepth), MaxCrawlDepth, 0, HardLimits.MaxCrawlDepth);
         EnsureInRange(nameof(MaxRedirects), MaxRedirects, HardLimits.MinPositiveCount, HardLimits.MaxRedirects);
         EnsureInRange(nameof(MaxLinksPerPage), MaxLinksPerPage, HardLimits.MinPositiveCount, HardLimits.MaxLinksPerPage);
+        EnsureInRange(nameof(MaxExternalLinks), MaxExternalLinks, HardLimits.MinPositiveCount, HardLimits.MaxLinksPerPage);
         EnsureInRange(nameof(MaxDnsAddresses), MaxDnsAddresses, HardLimits.MinPositiveCount, HardLimits.MaxDnsAddresses);
         EnsureInRange(nameof(MaxHeaderCount), MaxHeaderCount, HardLimits.MinPositiveCount, HardLimits.MaxHeaderCount);
         EnsureInRange(nameof(MaxEvidenceExcerptBytes), MaxEvidenceExcerptBytes, HardLimits.MinPositiveCount, HardLimits.MaxEvidenceExcerptBytes);

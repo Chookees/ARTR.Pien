@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 
 using ARTR.Pien.Abstractions;
+using ARTR.Pien.Baselines;
 using ARTR.Pien.Checks;
 using ARTR.Pien.Configuration;
 using ARTR.Pien.Exceptions;
@@ -216,9 +217,9 @@ public sealed class ScanEngine : IScanEngine
 
         progress?.Report(new ScanProgress(ScanStage.Reporting, "Reporting", 95));
         var policyResult = _policyEvaluator.Evaluate(options.Policy, findings);
-        _ = _scoreCalculator.ScoreByCategory(findings, checkResults);
+        var scores = _scoreCalculator.ScoreByCategory(findings, checkResults);
         run = Finalize(run, ScanRunStatus.Completed, findings.Take(definition.Limits.MaxReportFindings).ToArray());
-        await PersistAndNotifyAsync(options, run, policyResult, cancellationToken).ConfigureAwait(false);
+        await PersistAndNotifyAsync(options, run, policyResult, scores, baseline, cancellationToken).ConfigureAwait(false);
         progress?.Report(new ScanProgress(ScanStage.Reporting, "Done", 100));
         return run;
     }
@@ -237,8 +238,16 @@ public sealed class ScanEngine : IScanEngine
         ScanEngineOptions options,
         ScanRun run,
         PolicyResult policyResult,
+        IReadOnlyDictionary<string, double> categoryScores,
+        Baseline? baseline,
         CancellationToken cancellationToken)
     {
+        IReadOnlyList<BaselineComparison> comparisons = [];
+        if (baseline is not null && options.CompareBaseline)
+        {
+            comparisons = BaselineComparer.Compare(baseline, run.Findings);
+        }
+
         var report = ReportDocument.Create(new ReportDocument
         {
             SchemaVersion = 1,
@@ -246,6 +255,8 @@ public sealed class ScanEngine : IScanEngine
             GeneratedAt = _clock.UtcNow,
             Findings = run.Findings,
             PolicyResult = policyResult,
+            BaselineComparisons = comparisons,
+            CategoryScores = categoryScores,
         });
 
         if (_store is not null)

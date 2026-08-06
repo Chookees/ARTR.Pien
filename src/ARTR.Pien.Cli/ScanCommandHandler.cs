@@ -4,6 +4,8 @@ using ARTR.Pien;
 using ARTR.Pien.Abstractions;
 using ARTR.Pien.Configuration;
 using ARTR.Pien.Exceptions;
+using ARTR.Pien.Findings;
+using ARTR.Pien.Policy;
 using ARTR.Pien.Reporting;
 using ARTR.Pien.Scanning;
 
@@ -215,13 +217,10 @@ internal static class ScanCommandHandler
         ScanRun run,
         CancellationToken cancellationToken)
     {
-        var document = ReportDocument.Create(new ReportDocument
-        {
-            SchemaVersion = 1,
-            RunId = run.Id,
-            GeneratedAt = DateTimeOffset.UtcNow,
-            Findings = run.Findings,
-        });
+        // Prefer the engine-persisted report (includes baseline diffs and category scores).
+        var document = await TryLoadStoredReportAsync(configuration, run, cancellationToken).ConfigureAwait(false)
+            ?? BuildFallbackReport(provider, configuration, run);
+
         var exporters = provider.GetServices<IReportExporter>()
             .Where(e => configuration.Output.Formats.Contains(e.Format, StringComparer.OrdinalIgnoreCase))
             .ToArray();
@@ -239,5 +238,53 @@ internal static class ScanCommandHandler
             await using var stream = File.Create(path);
             await exporter.ExportAsync(document, stream, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private static async Task<ReportDocument?> TryLoadStoredReportAsync(
+        PienConfiguration configuration,
+        ScanRun run,
+        CancellationToken cancellationToken)
+    {
+        var stateRelative = string.IsNullOrWhiteSpace(configuration.Storage.StateDirectory)
+            ? ".pien"
+            : configuration.Storage.StateDirectory;
+        var reportPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), stateRelative, "runs", run.Id.Value, "report.json"));
+        if (!File.Exists(reportPath))
+        {
+            return null;
+        }
+
+        await using var stream = File.OpenRead(reportPath);
+        var loaded = await System.Text.Json.JsonSerializer.DeserializeAsync<ReportDocument>(
+            stream,
+            new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                PropertyNameCaseInsensitive = true,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+            },
+            cancellationToken).ConfigureAwait(false);
+        return loaded is null ? null : ReportDocument.Create(loaded);
+    }
+
+    private static ReportDocument BuildFallbackReport(
+        IServiceProvider provider,
+        PienConfiguration configuration,
+        ScanRun run)
+    {
+        var policy = Policy.Policy.Create(new Policy.Policy
+        {
+            Name = configuration.Policies.Name,
+            Description = configuration.Policies.Name,
+            FailOnSeverityAtOrAbove = FindingSeverity.High,
+        });
+        return ReportDocument.Create(new ReportDocument
+        {
+            SchemaVersion = 1,
+            RunId = run.Id,
+            GeneratedAt = DateTimeOffset.UtcNow,
+            Findings = run.Findings,
+            PolicyResult = provider.GetRequiredService<IPolicyEvaluator>().Evaluate(policy, run.Findings),
+        });
     }
 }

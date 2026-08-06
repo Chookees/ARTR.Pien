@@ -511,6 +511,11 @@ public static class PienConfigurationValidator
             MaxCrawlDepth = configuration.Crawl.MaxDepth,
             MaxRedirects = configuration.Network.MaxRedirects,
             MaxLinksPerPage = configuration.Crawl.MaxLinksPerPage,
+            SameOriginOnly = configuration.Crawl.SameOriginOnly,
+            RespectRobotsTxt = configuration.Crawl.RespectRobotsTxt,
+            UseSitemap = configuration.Crawl.UseSitemap,
+            CheckExternalLinks = configuration.Crawl.CheckExternalLinks,
+            MaxExternalLinks = configuration.Crawl.MaxExternalLinks,
             ConnectTimeout = TimeSpan.FromSeconds(configuration.Network.ConnectTimeoutSeconds),
             RequestTimeout = TimeSpan.FromSeconds(configuration.Network.RequestTimeoutSeconds),
         });

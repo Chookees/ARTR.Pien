@@ -35,8 +35,40 @@ internal static class ApiCheckHelpers
         ScanContext context,
         string title,
         string detail,
-        FindingSeverity severity)
+        FindingSeverity severity,
+        string? evidence = null,
+        string? expected = null,
+        string? remediation = null,
+        FindingLocation? location = null,
+        Uri? resourceUri = null)
     {
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(detail);
+
+        var excerpts = new List<EvidenceExcerpt>(2);
+        if (!string.IsNullOrWhiteSpace(evidence))
+        {
+            excerpts.Add(EvidenceExcerpt.Create("text/plain", evidence.Trim(), 1024));
+        }
+
+        if (excerpts.Count == 0 ||
+            !string.Equals(excerpts[0].Text, detail, StringComparison.Ordinal))
+        {
+            excerpts.Add(EvidenceExcerpt.Create("text/plain", detail.Trim(), 1024));
+        }
+
+        var resolvedLocation = location ?? FindingLocation.Create(
+            "url",
+            (resourceUri ?? context.Target.BaseUrl).AbsoluteUri);
+        var resolvedExpected = string.IsNullOrWhiteSpace(expected)
+            ? definition.Description
+            : expected.Trim();
+        var resolvedRemediation = string.IsNullOrWhiteSpace(remediation)
+            ? $"Address '{definition.Name}' ({definition.Id.Value}): {definition.Description}"
+            : remediation.Trim();
+
         var finding = Finding.Create(new Finding
         {
             Id = FindingId.NewId(),
@@ -48,10 +80,13 @@ internal static class ApiCheckHelpers
             Severity = severity,
             Status = FindingStatus.Fail,
             TargetId = context.Target.Id,
-            Evidence = [],
+            Location = resolvedLocation,
+            Evidence = excerpts,
+            Expected = resolvedExpected,
+            Observed = detail,
+            Remediation = resolvedRemediation,
             Timestamp = context.UtcNow(),
             RunId = context.RunId,
-            Observed = detail,
         });
 
         return CheckResult.Create(new CheckResult

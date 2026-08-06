@@ -310,3 +310,139 @@ public sealed class OpenApiCoverageCheck : ICheck
         return value.TrimEnd('/');
     }
 }
+
+/// <summary>Flags OpenAPI operations that lack an operationId.</summary>
+public sealed class OpenApiMissingOperationIdCheck : ICheck
+{
+    /// <inheritdoc />
+    public CheckDefinition Definition { get; } = CheckDefinition.Create(new CheckDefinition
+    {
+        Id = CheckId.Create(CheckIds.OpenApi005),
+        Name = "OpenAPI missing operationId",
+        Category = CheckCategory.ApiContract,
+        DefaultSeverity = FindingSeverity.Low,
+        Description = "Fails when documented OpenAPI operations omit operationId values.",
+        RuleVersion = "1.0.0",
+    });
+
+    /// <inheritdoc />
+    public async Task<CheckResult> EvaluateAsync(ScanContext context, InspectionEvidence evidence, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(context.Target.OpenApiDocument))
+        {
+            return ApiCheckHelpers.NotApplicable(Definition);
+        }
+
+        var workingDirectory = evidence.WorkingDirectory ?? Directory.GetCurrentDirectory();
+        var (document, error) = await OpenApiCheckSupport.LoadAsync(context.Target.OpenApiDocument, workingDirectory, cancellationToken)
+            .ConfigureAwait(false);
+        if (document is null)
+        {
+            return ApiCheckHelpers.Fail(Definition, context, "OpenAPI operationId inspect failed", error ?? "parse failed", FindingSeverity.Low);
+        }
+
+        var missing = OpenApiCheckSupport.EnumerateOperations(document)
+            .Where(o => string.IsNullOrWhiteSpace(o.OperationId))
+            .Select(o => $"{o.Method} {o.Path}")
+            .Take(20)
+            .ToArray();
+        if (missing.Length == 0)
+        {
+            return ApiCheckHelpers.Pass(Definition);
+        }
+
+        return ApiCheckHelpers.Fail(
+            Definition,
+            context,
+            "OpenAPI operations missing operationId",
+            string.Join(", ", missing),
+            FindingSeverity.Low,
+            evidence: string.Join("; ", missing),
+            expected: "Every documented OpenAPI operation declares a unique operationId.",
+            remediation: "Add stable operationId values to the OpenAPI document for tooling and contract tests.");
+    }
+}
+
+/// <summary>Flags JSON response definitions that omit a schema.</summary>
+public sealed class OpenApiResponseSchemaCheck : ICheck
+{
+    /// <inheritdoc />
+    public CheckDefinition Definition { get; } = CheckDefinition.Create(new CheckDefinition
+    {
+        Id = CheckId.Create(CheckIds.OpenApi006),
+        Name = "OpenAPI response schema presence",
+        Category = CheckCategory.ApiContract,
+        DefaultSeverity = FindingSeverity.Low,
+        Description = "Fails when application/json responses are documented without a schema object.",
+        RuleVersion = "1.0.0",
+    });
+
+    /// <inheritdoc />
+    public async Task<CheckResult> EvaluateAsync(ScanContext context, InspectionEvidence evidence, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(context.Target.OpenApiDocument))
+        {
+            return ApiCheckHelpers.NotApplicable(Definition);
+        }
+
+        var workingDirectory = evidence.WorkingDirectory ?? Directory.GetCurrentDirectory();
+        var (document, error) = await OpenApiCheckSupport.LoadAsync(context.Target.OpenApiDocument, workingDirectory, cancellationToken)
+            .ConfigureAwait(false);
+        if (document is null)
+        {
+            return ApiCheckHelpers.Fail(Definition, context, "OpenAPI schema inspect failed", error ?? "parse failed", FindingSeverity.Low);
+        }
+
+        var gaps = new List<string>();
+        foreach (var (path, method, _, operation) in OpenApiCheckSupport.EnumerateOperations(document))
+        {
+            if (operation.Responses is null)
+            {
+                continue;
+            }
+
+            foreach (var (status, response) in operation.Responses)
+            {
+                if (response?.Content is null)
+                {
+                    continue;
+                }
+
+                foreach (var (contentType, media) in response.Content)
+                {
+                    if (!contentType.Contains("json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (media?.Schema is null)
+                    {
+                        gaps.Add($"{method} {path} [{status}] {contentType}");
+                    }
+                }
+            }
+
+            if (gaps.Count >= 20)
+            {
+                break;
+            }
+        }
+
+        if (gaps.Count == 0)
+        {
+            return ApiCheckHelpers.Pass(Definition);
+        }
+
+        return ApiCheckHelpers.Fail(
+            Definition,
+            context,
+            "OpenAPI JSON responses missing schemas",
+            string.Join(", ", gaps.Take(8)),
+            FindingSeverity.Low,
+            evidence: string.Join("; ", gaps),
+            expected: "Documented application/json responses include a schema.",
+            remediation: "Add response schemas for JSON media types so contract validation can run.");
+    }
+}

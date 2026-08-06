@@ -77,11 +77,22 @@ dotnet run --project src/ARTR.Pien.Cli -c Release -- scan --profile ci --fail-on
 Edit `authorization.confirmed` only for systems you may test. Until `confirmed` is `true`, both `validate` and `scan` refuse the config (exit 3 / 4).
 
 ```powershell
-dotnet run --project src/ARTR.Pien.Cli -c Release -- scan --format console,json --output artifacts/pien
+dotnet run --project src/ARTR.Pien.Cli -c Release -- scan --format console,json,html --output artifacts/pien
 ```
 
 - Placeholder shape (will not validate until confirmed): [`quick-website.json`](../config/examples/quick-website.json)
 - Validate-ready loopback: [`loopback-website.json`](../config/examples/loopback-website.json) (`confirmed: true`, `allowPrivateNetworks`, `allowedHosts` for `127.0.0.1`)
+- HTML report is self-contained (German customer layout, filters, baseline diff when `--baseline` is used)
+- Legal discoverability: `PIEN-LEGAL-001` (Impressum) and `PIEN-LEGAL-002` (Datenschutz) — heuristics, not legal certification
+- Optional external link probes:
+
+```json
+"crawl": {
+  "checkExternalLinks": true,
+  "maxExternalLinks": 50,
+  "sameOriginOnly": true
+}
+```
 
 ---
 

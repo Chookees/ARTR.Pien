@@ -731,12 +731,21 @@ public sealed class AccessibilityEmptyControlsCheck : ICheck
             var titled = element.GetAttribute("title")?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(text) && string.IsNullOrWhiteSpace(aria) && string.IsNullOrWhiteSpace(titled))
             {
+                var href = element.GetAttribute("href");
+                var location = !string.IsNullOrWhiteSpace(href)
+                    ? FindingLocation.Create("url", href)
+                    : FindingLocation.Create("css", element.LocalName);
                 return Task.FromResult(CheckHelpers.Fail(
                     Definition,
                     context,
                     "Empty interactive control",
                     $"Empty {element.LocalName} has no accessible name.",
-                    FindingSeverity.Low));
+                    FindingSeverity.Low,
+                    evidence: $"tag={element.LocalName}; href={href ?? "(none)"}; aria-label=(empty); title=(empty)",
+                    expected: "Interactive controls expose an accessible name via text, aria-label, or title.",
+                    remediation: "Provide visible text or an accessible name for the empty control.",
+                    location: location,
+                    resourceUri: primary.FinalUri));
             }
         }
 

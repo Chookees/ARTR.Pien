@@ -146,6 +146,12 @@ public sealed class PienCrawlConfiguration
     /// <summary>Same-origin only.</summary>
     public bool SameOriginOnly { get; set; } = true;
 
+    /// <summary>Probe external links discovered on same-origin pages (no further expansion).</summary>
+    public bool CheckExternalLinks { get; set; }
+
+    /// <summary>Maximum external link probes when checkExternalLinks is true.</summary>
+    public int MaxExternalLinks { get; set; } = 50;
+
     /// <summary>Maximum links processed per page.</summary>
     public int MaxLinksPerPage { get; set; } = 1_000;
 }

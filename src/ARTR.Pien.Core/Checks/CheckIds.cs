@@ -107,6 +107,9 @@ public static class CheckIds
     /// <summary>Missing link text.</summary>
     public const string Link003 = "PIEN-LINK-003";
 
+    /// <summary>Broken external links observed when checkExternalLinks is enabled.</summary>
+    public const string Link004 = "PIEN-LINK-004";
+
     /// <summary>API response contract fundamentals.</summary>
     public const string Api001 = "PIEN-API-001";
 
@@ -133,6 +136,18 @@ public static class CheckIds
 
     /// <summary>Coverage of configured operations vs OpenAPI document.</summary>
     public const string OpenApi004 = "PIEN-OPENAPI-004";
+
+    /// <summary>OpenAPI operations missing operationId.</summary>
+    public const string OpenApi005 = "PIEN-OPENAPI-005";
+
+    /// <summary>OpenAPI documented JSON responses missing schemas.</summary>
+    public const string OpenApi006 = "PIEN-OPENAPI-006";
+
+    /// <summary>Impressum / legal notice link discoverability.</summary>
+    public const string Legal001 = "PIEN-LEGAL-001";
+
+    /// <summary>Privacy / Datenschutz link discoverability.</summary>
+    public const string Legal002 = "PIEN-LEGAL-002";
 
     /// <summary>Baseline change detection.</summary>
     public const string Change001 = "PIEN-CHANGE-001";
@@ -188,6 +203,7 @@ public static class CheckIds
         Link001,
         Link002,
         Link003,
+        Link004,
         Api001,
         Api002,
         Api003,
@@ -197,6 +213,10 @@ public static class CheckIds
         OpenApi002,
         OpenApi003,
         OpenApi004,
+        OpenApi005,
+        OpenApi006,
+        Legal001,
+        Legal002,
         Change001,
         Change002,
         Perf001,

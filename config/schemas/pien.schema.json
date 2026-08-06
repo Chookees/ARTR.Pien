@@ -252,6 +252,17 @@
         "respectRobotsTxt": { "type": "boolean", "default": true },
         "useSitemap": { "type": "boolean", "default": true },
         "sameOriginOnly": { "type": "boolean", "default": true },
+        "checkExternalLinks": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, probe external http(s) links found on same-origin pages without expanding the crawl graph."
+        },
+        "maxExternalLinks": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "default": 50
+        },
         "maxLinksPerPage": { "type": "integer", "minimum": 1, "maximum": 10000, "default": 1000 }
       }
     },

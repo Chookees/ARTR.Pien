@@ -11,12 +11,15 @@ using ARTR.Pien.Scanning;
 namespace ARTR.Pien.Web.Crawl;
 
 /// <summary>
-/// Deterministic iterative same-origin crawler with robots.txt and sitemap support.
+/// Deterministic iterative website crawler with robots.txt, sitemap, and optional external link probing.
 /// </summary>
+/// <remarks>
+/// Same-origin expansion is the default. When <see cref="ScanLimits.CheckExternalLinks"/> is enabled,
+/// external http(s) links discovered on same-origin pages are enqueued as leaf probes (no further expansion).
+/// </remarks>
 public sealed class WebsiteCrawler : ICrawler
 {
     private readonly ISafeHttpTransport _transport;
-    private readonly NetworkSafetyOptions _networkOptions;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebsiteCrawler"/> class.
@@ -24,7 +27,7 @@ public sealed class WebsiteCrawler : ICrawler
     public WebsiteCrawler(ISafeHttpTransport transport, NetworkSafetyOptions networkOptions)
     {
         _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-        _networkOptions = networkOptions ?? throw new ArgumentNullException(nameof(networkOptions));
+        ArgumentNullException.ThrowIfNull(networkOptions);
     }
 
     /// <inheritdoc />
@@ -37,6 +40,29 @@ public sealed class WebsiteCrawler : ICrawler
         ArgumentNullException.ThrowIfNull(limits);
         ScanTarget.Create(target);
 
+        var state = await CreateStateAsync(target, limits, cancellationToken).ConfigureAwait(false);
+        Enqueue(state, target.BaseUrl, 0, null, target.BaseUrl, limits, isExternalLeaf: false);
+        if (limits.UseSitemap)
+        {
+            foreach (var seed in await LoadSitemapSeedsAsync(target, state.Context, limits, cancellationToken).ConfigureAwait(false))
+            {
+                Enqueue(state, seed, 0, target.BaseUrl, target.BaseUrl, limits, isExternalLeaf: false);
+            }
+        }
+
+        var pages = 0;
+        while (state.Queue.Count > 0 && pages < limits.MaxCrawlPages)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var page = state.Queue.Dequeue();
+            pages++;
+            yield return page;
+            await ExpandPageAsync(page, target, limits, state, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<CrawlState> CreateStateAsync(ScanTarget target, ScanLimits limits, CancellationToken cancellationToken)
+    {
         var context = new ScanContext(
             ScanRunId.NewId(),
             ScanDefinition.Create(new ScanDefinition
@@ -50,60 +76,67 @@ public sealed class WebsiteCrawler : ICrawler
             target,
             static () => DateTimeOffset.UtcNow);
 
-        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var queue = new Queue<CrawlPage>();
-        var robots = await LoadRobotsAsync(target, context, cancellationToken).ConfigureAwait(false);
-        Enqueue(queue, visited, target.BaseUrl, 0, null, target.BaseUrl, limits, robots);
-
-        if (robots.UseSitemap)
+        return new CrawlState
         {
-            foreach (var seed in await LoadSitemapSeedsAsync(target, context, limits, cancellationToken).ConfigureAwait(false))
-            {
-                Enqueue(queue, visited, seed, 0, target.BaseUrl, target.BaseUrl, limits, robots);
-            }
+            Context = context,
+            Robots = limits.RespectRobotsTxt
+                ? await LoadRobotsAsync(target, context, cancellationToken).ConfigureAwait(false)
+                : RobotsRules.AllowAll,
+        };
+    }
+
+    private async Task ExpandPageAsync(
+        CrawlPage page,
+        ScanTarget target,
+        ScanLimits limits,
+        CrawlState state,
+        CancellationToken cancellationToken)
+    {
+        if (page.Depth >= limits.MaxCrawlDepth ||
+            !string.Equals(page.Uri.Host, target.BaseUrl.Host, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
         }
 
-        var pages = 0;
-        while (queue.Count > 0 && pages < limits.MaxCrawlPages)
+        ProbeResult result;
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var page = queue.Dequeue();
-            pages++;
-            yield return page;
+            result = await _transport.SendAsync(
+                ProbeRequest.Create(new ProbeRequest
+                {
+                    Uri = page.Uri,
+                    Method = ProbeMethod.Get,
+                    MaxResponseBodyBytes = limits.BodyInspectionLimitBytes,
+                }),
+                state.Context,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return;
+        }
 
-            if (page.Depth >= limits.MaxCrawlDepth)
+        if (result.StatusCode is null || (int)result.StatusCode >= 400)
+        {
+            return;
+        }
+
+        foreach (var link in ExtractLinks(Encoding.UTF8.GetString(result.Body.Span), page.Uri, limits.MaxLinksPerPage))
+        {
+            var sameHost = string.Equals(link.Host, target.BaseUrl.Host, StringComparison.OrdinalIgnoreCase);
+            if (!sameHost && (!limits.CheckExternalLinks || state.ExternalProbed >= limits.MaxExternalLinks))
             {
                 continue;
             }
 
-            ProbeResult result;
-            try
-            {
-                result = await _transport.SendAsync(
-                    ProbeRequest.Create(new ProbeRequest
-                    {
-                        Uri = page.Uri,
-                        Method = ProbeMethod.Get,
-                        MaxResponseBodyBytes = limits.BodyInspectionLimitBytes,
-                    }),
-                    context,
-                    cancellationToken).ConfigureAwait(false);
-            }
-            catch
-            {
-                continue;
-            }
-
-            if (result.StatusCode is null || (int)result.StatusCode >= 400)
-            {
-                continue;
-            }
-
-            var html = Encoding.UTF8.GetString(result.Body.Span);
-            foreach (var link in ExtractLinks(html, page.Uri, limits.MaxLinksPerPage))
-            {
-                Enqueue(queue, visited, link, page.Depth + 1, page.Uri, target.BaseUrl, limits, robots);
-            }
+            Enqueue(
+                state,
+                link,
+                depth: sameHost ? page.Depth + 1 : limits.MaxCrawlDepth,
+                referrer: page.Uri,
+                origin: target.BaseUrl,
+                limits,
+                isExternalLeaf: !sameHost);
         }
     }
 
@@ -111,24 +144,23 @@ public sealed class WebsiteCrawler : ICrawler
     {
         try
         {
-            var robotsUri = new Uri(target.BaseUrl, "/robots.txt");
             var result = await _transport.SendAsync(
                 ProbeRequest.Create(new ProbeRequest
                 {
-                    Uri = robotsUri,
+                    Uri = new Uri(target.BaseUrl, "/robots.txt"),
                     Method = ProbeMethod.Get,
                     MaxResponseBodyBytes = 64 * 1024,
                 }),
                 context,
                 cancellationToken).ConfigureAwait(false);
-            if (result.StatusCode != System.Net.HttpStatusCode.OK)
+            if (result.StatusCode is null || (int)result.StatusCode >= 400)
             {
                 return RobotsRules.AllowAll;
             }
 
             return RobotsRules.Parse(Encoding.UTF8.GetString(result.Body.Span));
         }
-        catch
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return RobotsRules.AllowAll;
         }
@@ -140,61 +172,72 @@ public sealed class WebsiteCrawler : ICrawler
         ScanLimits limits,
         CancellationToken cancellationToken)
     {
-        var seeds = new List<Uri>();
         try
         {
-            var sitemapUri = new Uri(target.BaseUrl, "/sitemap.xml");
             var result = await _transport.SendAsync(
                 ProbeRequest.Create(new ProbeRequest
                 {
-                    Uri = sitemapUri,
+                    Uri = new Uri(target.BaseUrl, "/sitemap.xml"),
                     Method = ProbeMethod.Get,
-                    MaxResponseBodyBytes = Math.Min(limits.BodyInspectionLimitBytes, 1024 * 1024),
+                    MaxResponseBodyBytes = 256 * 1024,
                 }),
                 context,
                 cancellationToken).ConfigureAwait(false);
-            if (result.StatusCode != System.Net.HttpStatusCode.OK)
+            if (result.StatusCode is null || (int)result.StatusCode >= 400)
             {
-                return seeds;
+                return [];
             }
 
+            return ParseSitemapUrls(Encoding.UTF8.GetString(result.Body.Span), target.BaseUrl, limits.MaxCrawlPages);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return [];
+        }
+    }
+
+    private static IReadOnlyList<Uri> ParseSitemapUrls(string xml, Uri origin, int max)
+    {
+        var list = new List<Uri>();
+        try
+        {
             var settings = new XmlReaderSettings
             {
                 DtdProcessing = DtdProcessing.Prohibit,
                 XmlResolver = null,
                 MaxCharactersFromEntities = 0,
-                Async = true,
             };
-            await using var stream = new MemoryStream(result.Body.ToArray());
-            using var reader = XmlReader.Create(stream, settings);
-            var count = 0;
-            while (await reader.ReadAsync().ConfigureAwait(false) && count < limits.MaxCrawlPages)
+            using var reader = XmlReader.Create(new StringReader(xml), settings);
+            while (reader.Read() && list.Count < max)
             {
-                if (reader.NodeType == XmlNodeType.Element && reader.Name is "loc" or "xhtml:link")
+                if (reader.NodeType != XmlNodeType.Element ||
+                    !string.Equals(reader.LocalName, "loc", StringComparison.OrdinalIgnoreCase))
                 {
-                    var value = await reader.ReadElementContentAsStringAsync().ConfigureAwait(false);
-                    if (Uri.TryCreate(value, UriKind.Absolute, out var loc))
-                    {
-                        seeds.Add(loc);
-                        count++;
-                    }
+                    continue;
+                }
+
+                var value = reader.ReadElementContentAsString();
+                if (Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+                    uri.Scheme is "http" or "https" &&
+                    string.Equals(uri.Host, origin.Host, StringComparison.OrdinalIgnoreCase))
+                {
+                    list.Add(uri);
                 }
             }
         }
-        catch
+        catch (XmlException)
         {
-            // Sitemap is optional.
+            return list;
         }
 
-        return seeds;
+        return list;
     }
 
     private static IEnumerable<Uri> ExtractLinks(string html, Uri baseUri, int maxLinks)
     {
-        var parser = new HtmlParser();
-        var document = parser.ParseDocument(html);
+        var document = new HtmlParser().ParseDocument(html);
         var count = 0;
-        foreach (var anchor in document.QuerySelectorAll("a[href]"))
+        foreach (var anchor in document.Links)
         {
             if (count >= maxLinks)
             {
@@ -202,12 +245,7 @@ public sealed class WebsiteCrawler : ICrawler
             }
 
             var href = anchor.GetAttribute("href");
-            if (string.IsNullOrWhiteSpace(href))
-            {
-                continue;
-            }
-
-            if (!Uri.TryCreate(baseUri, href, out var absolute))
+            if (string.IsNullOrWhiteSpace(href) || !Uri.TryCreate(baseUri, href, out var absolute))
             {
                 continue;
             }
@@ -223,43 +261,60 @@ public sealed class WebsiteCrawler : ICrawler
     }
 
     private static void Enqueue(
-        Queue<CrawlPage> queue,
-        HashSet<string> visited,
+        CrawlState state,
         Uri uri,
         int depth,
         Uri? referrer,
         Uri origin,
         ScanLimits limits,
-        RobotsRules robots)
+        bool isExternalLeaf)
     {
         if (depth > limits.MaxCrawlDepth)
         {
             return;
         }
 
-        if (!string.Equals(uri.Host, origin.Host, StringComparison.OrdinalIgnoreCase))
+        var sameHost = string.Equals(uri.Host, origin.Host, StringComparison.OrdinalIgnoreCase);
+        if (!sameHost && (!limits.CheckExternalLinks || !isExternalLeaf || state.ExternalProbed >= limits.MaxExternalLinks))
         {
             return;
         }
 
         var key = uri.GetLeftPart(UriPartial.Path).TrimEnd('/').ToLowerInvariant();
-        if (!visited.Add(key))
+        if (!state.Visited.Add(key))
         {
             return;
         }
 
-        if (!robots.IsAllowed(uri.AbsolutePath))
+        if (sameHost && limits.RespectRobotsTxt && !state.Robots.IsAllowed(uri.AbsolutePath))
         {
             return;
         }
 
-        queue.Enqueue(new CrawlPage(uri, depth, referrer));
+        if (!sameHost)
+        {
+            state.ExternalProbed++;
+        }
+
+        state.Queue.Enqueue(new CrawlPage(uri, depth, referrer));
+    }
+
+    private sealed class CrawlState
+    {
+        public HashSet<string> Visited { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        public Queue<CrawlPage> Queue { get; } = new();
+
+        public int ExternalProbed { get; set; }
+
+        public required RobotsRules Robots { get; init; }
+
+        public required ScanContext Context { get; init; }
     }
 
     private sealed class RobotsRules
     {
         private readonly List<string> _disallow = [];
-        public bool UseSitemap { get; private set; } = true;
 
         public static RobotsRules AllowAll { get; } = new();
 
@@ -280,11 +335,9 @@ public sealed class WebsiteCrawler : ICrawler
                     continue;
                 }
 
-                var key = parts[0].Trim();
-                var value = parts[1].Trim();
-                if (key.Equals("Disallow", StringComparison.OrdinalIgnoreCase) && value.Length > 0)
+                if (parts[0].Trim().Equals("Disallow", StringComparison.OrdinalIgnoreCase) && parts[1].Trim().Length > 0)
                 {
-                    rules._disallow.Add(value);
+                    rules._disallow.Add(parts[1].Trim());
                 }
             }
 

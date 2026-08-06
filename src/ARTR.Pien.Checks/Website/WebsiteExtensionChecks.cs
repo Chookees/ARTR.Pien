@@ -249,12 +249,18 @@ public sealed class LinkTextCheck : ICheck
 
             if (string.IsNullOrWhiteSpace(anchor.TextContent))
             {
+                var href = anchor.GetAttribute("href") ?? "(missing-href)";
                 return Task.FromResult(CheckHelpers.Fail(
                     Definition,
                     context,
                     "Missing link text",
-                    $"Anchor href '{anchor.GetAttribute("href")}' has empty text.",
-                    FindingSeverity.Low));
+                    $"Anchor href '{href}' has empty text.",
+                    FindingSeverity.Low,
+                    evidence: $"href={href}; textLength=0",
+                    expected: "Every navigable anchor has visible or accessible link text.",
+                    remediation: "Add descriptive link text (or aria-label) for the empty anchor.",
+                    location: FindingLocation.Create("url", href),
+                    resourceUri: primary.FinalUri));
             }
         }
 

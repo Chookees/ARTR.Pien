@@ -130,8 +130,11 @@ public sealed class ReportExporterGoldenTests
         Assert.Contains("| High | `PIEN-HTTP-001` |", markdown, StringComparison.Ordinal);
 
         var html = Normalize(await ExportAsync(new HtmlReportExporter()));
-        Assert.Contains("Run <code>run-golden</code> generated TIMESTAMP", html, StringComparison.Ordinal);
+        Assert.Contains("lang=\"de\"", html, StringComparison.Ordinal);
+        Assert.Contains("Prüfbericht", html, StringComparison.Ordinal);
+        Assert.Contains("Lauf <code>run-golden</code>", html, StringComparison.Ordinal);
         Assert.Contains("<code>PIEN-HTTP-001</code>", html, StringComparison.Ordinal);
         Assert.Contains("&lt;script&gt;alert(1)&lt;/script&gt;", html, StringComparison.Ordinal);
+        Assert.Contains("sevFilter", html, StringComparison.Ordinal);
     }
 }

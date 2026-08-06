@@ -13,7 +13,7 @@ Stable IDs never depend on execution order (ADR-016 / ADR-021). Format: `PIEN-{A
 | **D** | Designed for Developer (ID reserved / planned) |
 | **C** | Constant exists in `CheckIds` but check body not yet registered |
 
-`CheckIds` defines **48** constants. All **48** designed checks are implemented and registered.
+`CheckIds` defines **53** constants. All **53** designed checks are implemented and registered.
 
 ## Summary counts
 
@@ -26,12 +26,13 @@ Stable IDs never depend on execution order (ADR-016 / ADR-021). Format: `PIEN-{A
 | HTML | 4 | 4 | 4 |
 | Accessibility | 5 | 5 | 5 |
 | SEO | 4 | 4 | 4 |
-| Link | 3 | 3 | 3 |
+| Link | 4 | 4 | 4 |
+| Legal | 2 | 2 | 2 |
 | API | 5 | 5 | 5 |
-| OpenAPI | 4 | 4 | 4 |
+| OpenAPI | 6 | 6 | 6 |
 | Change | 2 | 2 | 2 |
 | Perf | 3 | 3 | 3 |
-| **Total** | **48** | **48** | **48** |
+| **Total** | **53** | **53** | **53** |
 
 ## Master table
 
@@ -71,6 +72,9 @@ Stable IDs never depend on execution order (ADR-016 / ADR-021). Format: `PIEN-{A
 | PIEN-LINK-001 | Discoverability | Medium | Broken or unsafe link detection | **I** |
 | PIEN-LINK-002 | Discoverability | Medium | Broken internal links (crawl) | **I** |
 | PIEN-LINK-003 | Discoverability | Low | Missing link text | **I** |
+| PIEN-LINK-004 | Discoverability | Low | Broken external links (checkExternalLinks) | **I** |
+| PIEN-LEGAL-001 | Discoverability | Medium | Impressum / legal-notice link | **I** |
+| PIEN-LEGAL-002 | Discoverability | Medium | Datenschutz / privacy-policy link | **I** |
 | PIEN-API-001 | ApiContract | High | API response contract fundamentals | **I** |
 | PIEN-API-002 | ApiContract | High | Expected status / content-type | **I** |
 | PIEN-API-003 | ApiContract | Medium | JSON assertions (pointer ops) | **I** |
@@ -80,6 +84,8 @@ Stable IDs never depend on execution order (ADR-016 / ADR-021). Format: `PIEN-{A
 | PIEN-OPENAPI-002 | ApiContract | Medium | Operation ID / server URL hygiene | **I** |
 | PIEN-OPENAPI-003 | ApiContract | Low | Response vs documented status/content-type | **I** |
 | PIEN-OPENAPI-004 | ApiContract | Info | Configured operation coverage stats | **I** |
+| PIEN-OPENAPI-005 | ApiContract | Low | Missing operationId values | **I** |
+| PIEN-OPENAPI-006 | ApiContract | Low | JSON responses missing schemas | **I** |
 | PIEN-CHANGE-001 | ChangeStability | Medium | Baseline change detection | **I** |
 | PIEN-CHANGE-002 | ChangeStability | Low | Volatile content fingerprint drift note | **I** |
 | PIEN-PERF-001 | Performance | Low | Performance budget fundamentals | **I** |

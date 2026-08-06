@@ -34,13 +34,25 @@ internal static class CheckHelpers
         string title,
         string detail,
         FindingSeverity severity,
-        string? evidence = null)
+        string? evidence = null,
+        string? expected = null,
+        string? remediation = null,
+        FindingLocation? location = null,
+        Uri? resourceUri = null)
     {
-        var excerpts = new List<EvidenceExcerpt>();
-        if (!string.IsNullOrWhiteSpace(evidence))
-        {
-            excerpts.Add(EvidenceExcerpt.Create("text/plain", evidence, 512));
-        }
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(detail);
+
+        var excerpts = BuildEvidenceExcerpts(detail, evidence);
+        var resolvedLocation = location ?? ResolveLocation(context, resourceUri);
+        var resolvedExpected = string.IsNullOrWhiteSpace(expected)
+            ? definition.Description
+            : expected.Trim();
+        var resolvedRemediation = string.IsNullOrWhiteSpace(remediation)
+            ? $"Address '{definition.Name}' ({definition.Id.Value}): {definition.Description}"
+            : remediation.Trim();
 
         var finding = Finding.Create(new Finding
         {
@@ -53,10 +65,13 @@ internal static class CheckHelpers
             Severity = severity,
             Status = FindingStatus.Fail,
             TargetId = context.Target.Id,
+            Location = resolvedLocation,
             Evidence = excerpts,
+            Expected = resolvedExpected,
+            Observed = detail,
+            Remediation = resolvedRemediation,
             Timestamp = context.UtcNow(),
             RunId = context.RunId,
-            Observed = detail,
         });
 
         return CheckResult.Create(new CheckResult
@@ -65,6 +80,31 @@ internal static class CheckHelpers
             Status = FindingStatus.Fail,
             Findings = [finding],
         });
+    }
+
+    private static IReadOnlyList<EvidenceExcerpt> BuildEvidenceExcerpts(string detail, string? evidence)
+    {
+        var excerpts = new List<EvidenceExcerpt>(2);
+        if (!string.IsNullOrWhiteSpace(evidence))
+        {
+            excerpts.Add(EvidenceExcerpt.Create("text/plain", evidence.Trim(), 1024));
+        }
+
+        // Always retain the observed detail as bounded evidence so reports are actionable
+        // even when a check did not supply a separate excerpt.
+        if (excerpts.Count == 0 ||
+            !string.Equals(excerpts[0].Text, detail, StringComparison.Ordinal))
+        {
+            excerpts.Add(EvidenceExcerpt.Create("text/plain", detail.Trim(), 1024));
+        }
+
+        return excerpts;
+    }
+
+    private static FindingLocation ResolveLocation(ScanContext context, Uri? resourceUri)
+    {
+        var uri = resourceUri ?? context.Target.BaseUrl;
+        return FindingLocation.Create("url", uri.AbsoluteUri);
     }
 
     public static ProbeResult? Primary(InspectionEvidence evidence)
@@ -196,7 +236,25 @@ public sealed class SecurityHeadersCheck : ICheck
         var missing = RequiredHeaders.Where(h => !primary.Headers.ContainsKey(h)).ToArray();
         return missing.Length == 0
             ? Task.FromResult(CheckHelpers.Pass(Definition))
-            : Task.FromResult(CheckHelpers.Fail(Definition, context, "Missing security headers", "Missing: " + string.Join(", ", missing), FindingSeverity.Medium));
+            : Task.FromResult(CheckHelpers.Fail(
+                Definition,
+                context,
+                "Missing security headers",
+                "Missing: " + string.Join(", ", missing),
+                FindingSeverity.Medium,
+                evidence: SummarizeResponseHeaders(primary, missing),
+                expected: "Response includes foundational security headers: " + string.Join(", ", RequiredHeaders),
+                remediation: "Configure the origin to emit the missing security headers on HTML document responses.",
+                location: FindingLocation.Create("header", missing[0]),
+                resourceUri: primary.FinalUri));
+    }
+
+    private static string SummarizeResponseHeaders(ProbeResult primary, IReadOnlyList<string> missing)
+    {
+        var present = primary.Headers.Keys
+            .Where(k => RequiredHeaders.Contains(k, StringComparer.OrdinalIgnoreCase))
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
+        return $"finalUri={primary.FinalUri.AbsoluteUri}; status={(int?)primary.StatusCode}; present=[{string.Join(", ", present)}]; missing=[{string.Join(", ", missing)}]";
     }
 }
 
@@ -221,13 +279,32 @@ public sealed class ContentSecurityPolicyCheck : ICheck
         var primary = CheckHelpers.Primary(evidence);
         if (primary is null || !primary.Headers.TryGetValue("Content-Security-Policy", out var csp) || string.IsNullOrWhiteSpace(csp))
         {
-            return Task.FromResult(CheckHelpers.Fail(Definition, context, "CSP missing", "Content-Security-Policy header was not present.", FindingSeverity.Medium));
+            return Task.FromResult(CheckHelpers.Fail(
+                Definition,
+                context,
+                "CSP missing",
+                "Content-Security-Policy header was not present.",
+                FindingSeverity.Medium,
+                expected: "A Content-Security-Policy response header is present and enforced.",
+                remediation: "Add a Content-Security-Policy header that restricts script and resource origins appropriately.",
+                location: FindingLocation.Create("header", "Content-Security-Policy"),
+                resourceUri: primary?.FinalUri ?? context.Target.BaseUrl));
         }
 
         if (csp.Contains("unsafe-inline", StringComparison.OrdinalIgnoreCase) &&
             csp.Contains("script-src", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(CheckHelpers.Fail(Definition, context, "CSP allows unsafe-inline", csp, FindingSeverity.Low, csp));
+            return Task.FromResult(CheckHelpers.Fail(
+                Definition,
+                context,
+                "CSP allows unsafe-inline",
+                csp,
+                FindingSeverity.Low,
+                evidence: csp,
+                expected: "script-src does not allow unsafe-inline.",
+                remediation: "Remove 'unsafe-inline' from script-src and use nonces or hashes instead.",
+                location: FindingLocation.Create("header", "Content-Security-Policy"),
+                resourceUri: primary.FinalUri));
         }
 
         return Task.FromResult(CheckHelpers.Pass(Definition));

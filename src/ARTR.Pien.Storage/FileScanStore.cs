@@ -17,6 +17,7 @@ public sealed class FileScanStore : IScanStore, IBaselineStore, IRunHistoryStore
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
     };
 
     private readonly string _root;

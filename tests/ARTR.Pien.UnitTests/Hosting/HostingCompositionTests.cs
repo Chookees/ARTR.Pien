@@ -38,7 +38,7 @@ public sealed class HostingCompositionTests
             Assert.NotNull(provider.GetRequiredService<IBaselineStore>());
             Assert.NotNull(provider.GetRequiredService<IRunHistoryStore>());
             Assert.NotNull(provider.GetRequiredService<ISecretResolver>());
-            Assert.Equal(48, provider.GetRequiredService<ICheckCatalog>().List().Count);
+            Assert.Equal(CheckIds.All.Count, provider.GetRequiredService<ICheckCatalog>().List().Count);
             Assert.Null(provider.GetService<INotificationSender>());
         }
         finally

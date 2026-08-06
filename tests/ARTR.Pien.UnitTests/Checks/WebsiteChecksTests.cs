@@ -149,15 +149,21 @@ public sealed class WebsiteChecksTests
     }
 
     [Fact]
-    public async Task Tls_expiration_fails_when_expired()
+    public async Task Failed_findings_include_location_evidence_expected_and_remediation()
     {
-        var context = Context("https://127.0.0.1/");
-        var evidence = InspectionEvidence.Create(new InspectionEvidence
-        {
-            Target = context.Target,
-            Tls = new Abstractions.TlsProbeResult("Tls12", "TLS_AES_128_GCM_SHA256", DateTimeOffset.UtcNow.AddDays(-30), DateTimeOffset.UtcNow.AddDays(-1), "ABC", "CN=x", "CN=y"),
-        });
-        var result = await new TlsExpirationCheck().EvaluateAsync(context, evidence, TestContext.Current.CancellationToken);
+        var context = Context("https://shop.example/");
+        var result = await new SecurityHeadersCheck().EvaluateAsync(
+            context,
+            Evidence("<html><title>t</title><body></body></html>"),
+            TestContext.Current.CancellationToken);
+
         Assert.Equal(FindingStatus.Fail, result.Status);
+        var finding = Assert.Single(result.Findings);
+        Assert.NotNull(finding.Location);
+        Assert.False(string.IsNullOrWhiteSpace(finding.Location.Path));
+        Assert.NotEmpty(finding.Evidence);
+        Assert.False(string.IsNullOrWhiteSpace(finding.Expected));
+        Assert.False(string.IsNullOrWhiteSpace(finding.Observed));
+        Assert.False(string.IsNullOrWhiteSpace(finding.Remediation));
     }
 }

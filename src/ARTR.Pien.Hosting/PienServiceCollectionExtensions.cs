@@ -131,6 +131,9 @@ public static class PienServiceCollectionExtensions
         services.AddSingleton<ICheck, LinkSafetyCheck>();
         services.AddSingleton<ICheck, LinkInternalCrawlCheck>();
         services.AddSingleton<ICheck, LinkTextCheck>();
+        services.AddSingleton<ICheck, LinkExternalBrokenCheck>();
+        services.AddSingleton<ICheck, LegalImpressumCheck>();
+        services.AddSingleton<ICheck, LegalPrivacyPolicyCheck>();
         services.AddSingleton<ICheck, PerformanceBudgetCheck>();
         services.AddSingleton<ICheck, PerformanceTimingBudgetCheck>();
         services.AddSingleton<ICheck, PerformanceBodySizeBudgetCheck>();
@@ -146,6 +149,8 @@ public static class PienServiceCollectionExtensions
         services.AddSingleton<ICheck, OpenApiHygieneCheck>();
         services.AddSingleton<ICheck, OpenApiResponseConformanceCheck>();
         services.AddSingleton<ICheck, OpenApiCoverageCheck>();
+        services.AddSingleton<ICheck, OpenApiMissingOperationIdCheck>();
+        services.AddSingleton<ICheck, OpenApiResponseSchemaCheck>();
         services.AddSingleton<ICheck, BaselineChangeCheck>();
         services.AddSingleton<ICheck, BaselineVolatilityCheck>();
         return services;

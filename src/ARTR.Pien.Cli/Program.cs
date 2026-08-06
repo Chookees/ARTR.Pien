@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
+using ARTR.Pien.Baselines;
 using ARTR.Pien;
 using ARTR.Pien.Abstractions;
 using ARTR.Pien.Checks;
@@ -236,7 +237,7 @@ public static class Program
 
                 var targetId = run.Plan.Definition.Targets.FirstOrDefault()?.Id ?? "unknown";
                 var fingerprints = run.Findings
-                    .Select(f => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{f.CheckId}|{f.Title}|{f.Status}"))))
+                    .Select(FindingFingerprint.Compute)
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .OrderBy(x => x, StringComparer.Ordinal)
                     .ToArray();
@@ -304,7 +305,7 @@ public static class Program
             }
 
             var current = run.Findings
-                .Select(f => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{f.CheckId}|{f.Title}|{f.Status}"))))
+                .Select(FindingFingerprint.Compute)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var baselineSet = baseline.FindingFingerprints.ToHashSet(StringComparer.OrdinalIgnoreCase);
             Console.WriteLine($"New: {current.Except(baselineSet, StringComparer.OrdinalIgnoreCase).Count()}");
