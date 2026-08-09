@@ -46,7 +46,7 @@ Thumbs.db
 *.pfx
 *.pem
 !**/testdata/**/*.pem
-**/.cusror/
+**/.cursor/
 **/inDev/
 
 # Benchmarks
