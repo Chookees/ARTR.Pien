@@ -14,4 +14,10 @@ Maintainers are responsible for releases, dependency upgrades, and enforcing pro
 
 ## Releases
 
-Releases are tagged from `main` after CI verification. See `docs/` and `.github/workflows/` for the release process.
+Releases are tagged from `main` after CI verification. Cut a release with:
+
+```powershell
+pwsh -File build/Release.ps1 -Bump patch -Push
+```
+
+Tag push (`v*`) runs `.github/workflows/release.yml` (publish + source zip + GitHub Release assets).

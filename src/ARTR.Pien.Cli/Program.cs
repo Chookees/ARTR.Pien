@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -518,7 +519,12 @@ public static class Program
         var command = new Command("version", "Show version information");
         command.SetAction((_, _) =>
         {
-            Console.WriteLine("ARTR Pien 0.1.0");
+            var version = typeof(Program).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                ?.InformationalVersion
+                ?? typeof(Program).Assembly.GetName().Version?.ToString(3)
+                ?? "unknown";
+            Console.WriteLine($"ARTR Pien {version}");
             return Task.FromResult((int)PienExitCode.Success);
         });
         return command;

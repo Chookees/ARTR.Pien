@@ -46,6 +46,8 @@ Thumbs.db
 *.pfx
 *.pem
 !**/testdata/**/*.pem
+**/.cusror/
+**/inDev/
 
 # Benchmarks
 **/BenchmarkDotNet.Artifacts/
