@@ -11,7 +11,7 @@ on:
 
 jobs:
   analyze:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # CodeQL analysis works without Code Scanning enabled.
     # SARIF upload to the Security tab requires enabling Code scanning first:
     #   https://github.com/Chookees/ARTR.Pien/settings/security_analysis
