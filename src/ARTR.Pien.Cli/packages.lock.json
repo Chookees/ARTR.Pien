@@ -250,8 +250,8 @@
       },
       "SharpYaml": {
         "type": "Transitive",
-        "resolved": "2.1.4",
-        "contentHash": "/iwULhVBpTjD4wPZhLU+eUWBanDvri/2AGx5YbaAj5kp9kXzhqUfJEy56H5Yi+c+OXsdm/oKD1aTKB24BFp8cw=="
+        "resolved": "2.1.5",
+        "contentHash": "1pNSpfXxNAgCQ9sacKKpEWO2DxTefoLEjw0v1nWMvyJScUWacoHvjXr4LfcUkhm0qYgNYripFFiUeEzW4tdXIQ=="
       },
       "System.Diagnostics.EventLog": {
         "type": "Transitive",
@@ -268,8 +268,8 @@
         "dependencies": {
           "ARTR.Pien.Core": "[0.1.0, )",
           "ARTR.Pien.Web": "[0.1.0, )",
-          "Microsoft.OpenApi": "[3.9.0, )",
-          "Microsoft.OpenApi.YamlReader": "[3.9.0, )",
+          "Microsoft.OpenApi": "[3.11.0, )",
+          "Microsoft.OpenApi.YamlReader": "[3.11.0, )",
           "NJsonSchema": "[11.6.1, )"
         }
       },
@@ -420,18 +420,18 @@
       },
       "Microsoft.OpenApi": {
         "type": "CentralTransitive",
-        "requested": "[3.9.0, )",
-        "resolved": "3.9.0",
-        "contentHash": "2sDK6AFY1L/Xg8JvwlaDoPwzGqCftjUgHG2NhCy8gNV/1v4eXziYoH39e/pwC7oTBJInuYUUJqfkRpIMPQ/Fyw=="
+        "requested": "[3.11.0, )",
+        "resolved": "3.11.0",
+        "contentHash": "kvQz+mL/fnDw2VaE8zMyQhbMv7FmOYUydIhCVNKxQdrLu9XiMT/07DHwJ5YkRO2uzcxTFvMAKFKKywxoyLKHcA=="
       },
       "Microsoft.OpenApi.YamlReader": {
         "type": "CentralTransitive",
-        "requested": "[3.9.0, )",
-        "resolved": "3.9.0",
-        "contentHash": "5ZznymAMT7g8SNObLoBzSp3Sg9X+NjfLXOxiDbIQrMz9dksccd3i0FFcIM2YuVSWa6hiUsmQ3Wsrm2X8XrhtHw==",
+        "requested": "[3.11.0, )",
+        "resolved": "3.11.0",
+        "contentHash": "AM3Me+AzT9g123P9mc8Po5auLbYE9MeBW42TkR0T/NWelJuy2CqAR7eGpkdeP4lL7FCDZFW2dEdeQTBY+QxmWQ==",
         "dependencies": {
-          "Microsoft.OpenApi": "3.9.0",
-          "SharpYaml": "2.1.4"
+          "Microsoft.OpenApi": "3.11.0",
+          "SharpYaml": "2.1.5"
         }
       },
       "NJsonSchema": {
