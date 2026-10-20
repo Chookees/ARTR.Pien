@@ -9,8 +9,8 @@
     <PackageVersion Include="System.CommandLine" Version="2.0.10" />
     <PackageVersion Include="AngleSharp" Version="1.7.0" />
     <PackageVersion Include="NJsonSchema" Version="11.6.1" />
-    <PackageVersion Include="Microsoft.OpenApi" Version="3.9.0" />
-    <PackageVersion Include="Microsoft.OpenApi.YamlReader" Version="3.9.0" />
+    <PackageVersion Include="Microsoft.OpenApi" Version="3.11.0" />
+    <PackageVersion Include="Microsoft.OpenApi.YamlReader" Version="3.11.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.10" />
