@@ -13,9 +13,7 @@
 | Branch | `main` |
 | HEAD | `95e9a2a9ea779d58059a058243ca1f0f24ecf7d7` (report commit; `main` pushed to `origin/main`) |
 | Product version | `0.1.0` (`Directory.Build.props`) |
-| SDK pin | `10.0.302` (`global.json`) |
-
-> Note: the SDK pin was later raised to `10.0.403` (runtime `10.0.14`) for CVE-2026-111497.
+| SDK pin | `10.0.302` (`global.json`; later raised to `10.0.403` for CVE-2026-111497) |
 | Push | **success** — `git push origin main` → `d2eee96..95e9a2a  main -> main` |
 
 ## Recent meaningful commits
