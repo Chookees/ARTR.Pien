@@ -173,7 +173,7 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
         Assert.Contains("Home", Encoding.UTF8.GetString(result.Body.Span), StringComparison.Ordinal);
     }
 
-    // CVE-2026-111497 / GHSA-9v8h-qqgm-4m35: Brotli must not be advertised to untrusted servers.
+    // CVE-2026-111497 / GHSA-p3jp-9v83-76w9 (upstream google/brotli GHSA-9v8h-qqgm-4m35): Brotli must not be advertised to untrusted servers.
     [Fact]
     public async Task Transport_does_not_advertise_brotli()
     {
@@ -184,7 +184,7 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
         Assert.DoesNotContain("br", acceptEncoding, StringComparison.OrdinalIgnoreCase);
     }
 
-    // CVE-2026-111497 / GHSA-9v8h-qqgm-4m35: a "Content-Encoding: br" body must reach the caller
+    // CVE-2026-111497 / GHSA-p3jp-9v83-76w9 (upstream google/brotli GHSA-9v8h-qqgm-4m35): a "Content-Encoding: br" body must reach the caller
     // undecoded, which proves the native Brotli decoder never runs on server bytes.
     [Fact]
     public async Task Transport_does_not_decode_brotli_responses()
