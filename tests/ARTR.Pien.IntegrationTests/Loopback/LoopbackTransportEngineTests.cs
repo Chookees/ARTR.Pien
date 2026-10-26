@@ -87,6 +87,19 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
             ctx.Response.StatusCode = StatusCodes.Status200OK;
             return Task.CompletedTask;
         });
+        app.MapGet("/accept-encoding", async ctx =>
+        {
+            ctx.Response.ContentType = "text/plain";
+            await ctx.Response.WriteAsync(ctx.Request.Headers.AcceptEncoding.ToString());
+        });
+        app.MapGet("/fake-brotli", async ctx =>
+        {
+            // Not valid Brotli on purpose: the transport must hand these bytes back verbatim
+            // instead of feeding them to the native Brotli decoder.
+            ctx.Response.ContentType = "text/plain";
+            ctx.Response.Headers.ContentEncoding = "br";
+            await ctx.Response.WriteAsync("not-brotli");
+        });
         app.MapGet("/api/health", async ctx =>
         {
             ctx.Response.ContentType = "application/json";
@@ -136,6 +149,27 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Contains("Home", Encoding.UTF8.GetString(result.Body.Span), StringComparison.Ordinal);
+    }
+
+    // CVE-2026-111497 / GHSA-9v8h-qqgm-4m35: Brotli must not be advertised to untrusted servers.
+    [Fact]
+    public async Task Transport_does_not_advertise_brotli()
+    {
+        var result = await SendLoopbackGetAsync("/accept-encoding");
+        var acceptEncoding = Encoding.UTF8.GetString(result.Body.Span);
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Contains("gzip", acceptEncoding, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("br", acceptEncoding, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // CVE-2026-111497 / GHSA-9v8h-qqgm-4m35: a "Content-Encoding: br" body must reach the caller
+    // undecoded, which proves the native Brotli decoder never runs on server bytes.
+    [Fact]
+    public async Task Transport_does_not_decode_brotli_responses()
+    {
+        var result = await SendLoopbackGetAsync("/fake-brotli");
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.Equal("not-brotli", Encoding.UTF8.GetString(result.Body.Span));
     }
 
     [Fact]
@@ -344,5 +378,38 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
             },
             cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(ScanRunStatus.Completed, run.Status);
+    }
+
+    /// <summary>
+    /// Sends one GET for <paramref name="path"/> through a loopback-allowed <see cref="SafeHttpTransport"/>
+    /// and returns the probe result, so tests can inspect exactly what the transport hands back.
+    /// </summary>
+    private async Task<ProbeResult> SendLoopbackGetAsync(string path)
+    {
+        var network = new NetworkSafetyOptions
+        {
+            AllowPrivateNetworks = true,
+            AllowedHosts = ["127.0.0.1", "localhost"],
+        };
+        using var transport = new SafeHttpTransport(new DestinationValidator(), network);
+        var target = ScanTarget.Create(new ScanTarget
+        {
+            Id = "loop",
+            Kind = ScanTargetKind.Website,
+            BaseUrl = _baseUri!,
+            Authorization = new TargetAuthorization(true),
+        });
+        var definition = ScanDefinition.Create(new ScanDefinition
+        {
+            SchemaVersion = 1,
+            ProfileName = "quick",
+            Targets = [target],
+            Limits = ScanLimits.Default,
+        });
+        var context = new ScanContext(ScanRunId.NewId(), definition, definition.Limits, target, static () => DateTimeOffset.UtcNow);
+        return await transport.SendAsync(
+            ProbeRequest.Create(new ProbeRequest { Uri = new Uri(_baseUri!, path), Method = ProbeMethod.Get }),
+            context,
+            TestContext.Current.CancellationToken);
     }
 }
