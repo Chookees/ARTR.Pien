@@ -24,4 +24,8 @@
     <ProjectReference Include="..\ARTR.Pien.Storage\ARTR.Pien.Storage.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="ARTR.Pien.UnitTests" />
+  </ItemGroup>
+
 </Project>

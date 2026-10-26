@@ -8,6 +8,7 @@ using ARTR.Pien.Findings;
 using ARTR.Pien.Policy;
 using ARTR.Pien.Reporting;
 using ARTR.Pien.Scanning;
+using ARTR.Pien.Web.Transport;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -37,8 +38,11 @@ internal static class ScanCommandHandler
                 .ConfigureAwait(false);
             ApplyOverrides(configuration, parseResult, target, format, output, failOn, maxPages, maxDepth, baseline, confirmAuth);
             var validated = PienConfigurationValidator.Validate(configuration, workingDirectory);
+            var isQuiet = parseResult.GetValue(quiet);
+            // Before the first transport request: surface Brotli gate status on stderr (suppressed by --quiet).
+            BrotliRuntimeWarningWriter.WriteToStderrIfNeeded(isQuiet, DecompressionPolicy.GetCurrentStatus());
             await using var provider = Program.BuildServices(workingDirectory, configuration);
-            var progress = parseResult.GetValue(quiet)
+            var progress = isQuiet
                 ? null
                 : new Progress<ScanProgress>(p =>
                 {

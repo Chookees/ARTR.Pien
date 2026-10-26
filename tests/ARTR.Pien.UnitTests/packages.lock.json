@@ -399,6 +399,13 @@
           "NJsonSchema": "[11.6.1, )"
         }
       },
+      "artr.pien.cli": {
+        "type": "Project",
+        "dependencies": {
+          "ARTR.Pien.Hosting": "[0.1.0, )",
+          "System.CommandLine": "[2.0.10, )"
+        }
+      },
       "artr.pien.core": {
         "type": "Project"
       },
@@ -576,6 +583,12 @@
           "Namotion.Reflection": "3.5.0",
           "Newtonsoft.Json": "13.0.3"
         }
+      },
+      "System.CommandLine": {
+        "type": "CentralTransitive",
+        "requested": "[2.0.10, )",
+        "resolved": "2.0.10",
+        "contentHash": "6i1D6/U3i1f/PiXTt9pDvbJwdXEe0F2DZPup6BHzeIu5yPk/lkFzgtrJnPbj54JWUh8Y9vJeKG/TZIT6MkF8TA=="
       }
     }
   }

@@ -17,5 +17,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- Brotli response decompression is disabled in the HTTP transport (CVE-2026-111497, GHSA-p3jp-9v83-76w9; upstream google/brotli GHSA-9v8h-qqgm-4m35). Pien no longer sends `br` in `Accept-Encoding`, and `br`-encoded bodies are returned undecoded. It will be re-enabled once builds use the patched .NET runtime (10.0.14).
+- Brotli response decompression is re-enabled on the patched .NET runtime 10.0.14 or later (CVE-2026-111497, GHSA-p3jp-9v83-76w9; upstream GHSA-9v8h-qqgm-4m35). On older runtimes `br` is not advertised, `br` bodies are returned undecoded, and a one-time warning is logged. Decompressed bytes count against `MaxResponseBodyBytes`.
 - SDK pin raised to 10.0.403 (runtime 10.0.14) for CVE-2026-111497.
