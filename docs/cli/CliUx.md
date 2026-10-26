@@ -70,7 +70,7 @@ CI: `0` green; `1` expected test failure; `2–9` job error; `10` cancelled.
 | Flag / env | Applies | Behavior |
 |------------|---------|----------|
 | `--config <path>` | config-aware cmds | Override `./pien.json` |
-| `--quiet` / `-q` | scan | Suppress progress and warnings on stderr (errors still print) |
+| `--quiet` | scan | Suppress progress and warnings on stderr (errors still print) |
 | `--verbose` / `-v` | scan, watch, validate | Extra diagnostics on stderr (still no secrets) |
 | `--no-color` | all | Disable ANSI even on TTY |
 | `NO_COLOR` (any value) | all | Same as `--no-color` |
@@ -174,6 +174,7 @@ Stdout: `ARTR Pien {semver}`. Optional `Commit: {sha}`.
 ```
 error: Target rejected — authorization.confirmed is false for 'prod'.
   hint: Confirm ownership in pien.json, or remove the target.
+
 warning: Brotli decompression disabled: runtime 10.0.13 is older than 10.0.14 (CVE-2026-111497). 'br' is not advertised; responses with Content-Encoding: br are returned undecoded.
 ```
 
