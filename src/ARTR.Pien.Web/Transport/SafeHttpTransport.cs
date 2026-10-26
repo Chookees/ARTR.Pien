@@ -195,10 +195,11 @@ public sealed class SafeHttpTransport : ISafeHttpTransport, IDisposable
         return new SocketsHttpHandler
         {
             AllowAutoRedirect = false,
-            // CVE-2026-111497 / GHSA-9v8h-qqgm-4m35: the native Brotli decoder bundled with
-            // .NET 10.0.13 / 8.0.32 has an out-of-bounds write, and Pien decodes responses from
+            // CVE-2026-111497 / GHSA-9v8h-qqgm-4m35: the native Brotli decoder in .NET runtimes
+            // below 10.0.14 / 8.0.33 has an out-of-bounds write, and Pien decodes responses from
             // untrusted servers. Brotli stays off (no "br" in Accept-Encoding, no decoding) until
-            // .NET ships the fix (expected 10.0.14, 2026-11-10); re-enable it after that update.
+            // CI, global.json and release builds use the patched runtime (.NET 10.0.14, SDK 10.0.403,
+            // released 2026-10-25).
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
             ConnectCallback = async (context, cancellationToken) =>
             {
