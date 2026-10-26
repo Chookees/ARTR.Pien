@@ -11,7 +11,7 @@ Documentation-only rules drift. Build-enforced analyzers keep scan-path code hon
 
 Ship `ARTR.Pien.CodeAnalysis` with diagnostics **PIEN0001–PIEN0009**, packaged as an analyzer referenced by production projects. IDs **PIEN0010–PIEN0012** remain reserved and are **intentionally deferred** (see **ADR-030**).
 
-- Use `Microsoft.CodeAnalysis.CSharp` **5.6.0** aligned to SDK 10.0.302.
+- Use `Microsoft.CodeAnalysis.CSharp` **5.6.0** compatible with SDK 10.0.403.
 - Treat analyzer failures as errors where severity is Error.
 - Rules that are too noisy statically stay as Warning or procedural enforcement (see PowerOfTen.md / ADR-030).
 

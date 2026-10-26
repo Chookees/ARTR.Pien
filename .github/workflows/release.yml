@@ -17,7 +17,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: "10.0.302"
+          dotnet-version: "10.0.403"
+      - name: Show .NET info
+        run: dotnet --info
+      # This build with analyzers must run before build/Publish.sh: self-contained
+      # publish turns analyzers off (NU1004 in locked restore). Do not remove or reorder.
       - run: dotnet build ARTR.Pien.sln -c Release
       - run: bash build/Publish.sh Release
       - run: bash build/PackageSource.sh

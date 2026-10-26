@@ -4,7 +4,7 @@ Thanks for contributing. Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) an
 
 ## Development setup
 
-1. Install the .NET SDK pinned in `global.json` (10.0.302).
+1. Install the .NET SDK pinned in `global.json` (10.0.403).
 2. Clone this repository at `ARTR/Pien` (repository root).
 3. Restore and build:
 

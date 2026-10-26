@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Net;
 using System.Text;
 
@@ -100,6 +101,27 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
             ctx.Response.Headers.ContentEncoding = "br";
             await ctx.Response.WriteAsync("not-brotli");
         });
+        // GAP-PIEN27-GZIP-BOMB-TEST: compressed zeros that expand past BodyInspectionLimitBytes.
+        app.MapGet("/gzip-over-limit", async ctx =>
+        {
+            var limit = ScanLimits.Default.BodyInspectionLimitBytes;
+            await WriteGzipZerosAsync(ctx, limit + 1024);
+        });
+        // Control: decompressed size stays just under the transport body inspection limit.
+        app.MapGet("/gzip-under-limit", async ctx =>
+        {
+            var limit = ScanLimits.Default.BodyInspectionLimitBytes;
+            await WriteGzipZerosAsync(ctx, limit - 1);
+        });
+        // GAP-PIEN28-GZIP-TEST-LIMIT-SOURCE: non-default 1 MiB bound (over / just-under).
+        app.MapGet("/gzip-1mib-over", async ctx =>
+        {
+            await WriteGzipZerosAsync(ctx, (1L * 1024 * 1024) + 1024);
+        });
+        app.MapGet("/gzip-1mib-under", async ctx =>
+        {
+            await WriteGzipZerosAsync(ctx, (1L * 1024 * 1024) - 1);
+        });
         app.MapGet("/api/health", async ctx =>
         {
             ctx.Response.ContentType = "application/json";
@@ -170,6 +192,51 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
         var result = await SendLoopbackGetAsync("/fake-brotli");
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Equal("not-brotli", Encoding.UTF8.GetString(result.Body.Span));
+    }
+
+    // GAP-PIEN27-GZIP-BOMB-TEST: HttpClient auto-decompresses gzip before ReadBoundedAsync runs.
+    // The transport must enforce ScanLimits.Default.BodyInspectionLimitBytes on the decompressed
+    // stream (BodyTruncated + never more than the limit), not on the tiny wire payload.
+    [Fact]
+    public async Task Transport_truncates_gzip_body_above_inspection_limit()
+    {
+        var limit = ScanLimits.Default.BodyInspectionLimitBytes;
+        var result = await SendLoopbackGetAsync("/gzip-over-limit");
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.True(result.BodyTruncated);
+        Assert.Equal(limit, result.Body.Length);
+        Assert.True(result.Body.Length <= limit);
+    }
+
+    // GAP-PIEN27-GZIP-BOMB-TEST control: a gzip body that decompresses to just under the limit
+    // must be returned in full with BodyTruncated == false.
+    [Fact]
+    public async Task Transport_returns_full_gzip_body_just_under_inspection_limit()
+    {
+        var limit = ScanLimits.Default.BodyInspectionLimitBytes;
+        var result = await SendLoopbackGetAsync("/gzip-under-limit");
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.False(result.BodyTruncated);
+        Assert.Equal(limit - 1, result.Body.Length);
+    }
+
+    // GAP-PIEN28-GZIP-TEST-LIMIT-SOURCE: MaxResponseBodyBytes must be taken from the probe
+    // request (1 MiB here). A transport that hard-wires 5 MiB would accept the over-limit
+    // body and fail these assertions.
+    [Fact]
+    public async Task Transport_honors_non_default_one_mib_gzip_body_limit()
+    {
+        const long limit = 1L * 1024 * 1024;
+        var over = await SendLoopbackGetAsync("/gzip-1mib-over", limit);
+        Assert.Equal(HttpStatusCode.OK, over.StatusCode);
+        Assert.True(over.BodyTruncated);
+        Assert.Equal(limit, over.Body.Length);
+        Assert.True(over.Body.Length <= limit);
+
+        var under = await SendLoopbackGetAsync("/gzip-1mib-under", limit);
+        Assert.Equal(HttpStatusCode.OK, under.StatusCode);
+        Assert.False(under.BodyTruncated);
+        Assert.Equal(limit - 1, under.Body.Length);
     }
 
     [Fact]
@@ -384,7 +451,7 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
     /// Sends one GET for <paramref name="path"/> through a loopback-allowed <see cref="SafeHttpTransport"/>
     /// and returns the probe result, so tests can inspect exactly what the transport hands back.
     /// </summary>
-    private async Task<ProbeResult> SendLoopbackGetAsync(string path)
+    private async Task<ProbeResult> SendLoopbackGetAsync(string path, long? maxResponseBodyBytes = null)
     {
         var network = new NetworkSafetyOptions
         {
@@ -408,8 +475,32 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
         });
         var context = new ScanContext(ScanRunId.NewId(), definition, definition.Limits, target, static () => DateTimeOffset.UtcNow);
         return await transport.SendAsync(
-            ProbeRequest.Create(new ProbeRequest { Uri = new Uri(_baseUri!, path), Method = ProbeMethod.Get }),
+            ProbeRequest.Create(new ProbeRequest
+            {
+                Uri = new Uri(_baseUri!, path),
+                Method = ProbeMethod.Get,
+                MaxResponseBodyBytes = maxResponseBodyBytes ?? ScanLimits.Default.BodyInspectionLimitBytes,
+            }),
             context,
             TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    /// Writes a gzip payload of <paramref name="uncompressedLength"/> zero bytes with
+    /// <c>Content-Encoding: gzip</c> so AutomaticDecompression expands it before the body bound runs.
+    /// </summary>
+    private static async Task WriteGzipZerosAsync(HttpContext ctx, long uncompressedLength)
+    {
+        ctx.Response.ContentType = "application/octet-stream";
+        ctx.Response.Headers.ContentEncoding = "gzip";
+        await using var gzip = new GZipStream(ctx.Response.Body, CompressionLevel.Optimal, leaveOpen: true);
+        var chunk = new byte[64 * 1024];
+        var remaining = uncompressedLength;
+        while (remaining > 0)
+        {
+            var write = (int)Math.Min(remaining, chunk.Length);
+            await gzip.WriteAsync(chunk.AsMemory(0, write), ctx.RequestAborted);
+            remaining -= write;
+        }
     }
 }
