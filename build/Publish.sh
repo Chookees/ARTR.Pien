@@ -96,10 +96,14 @@ CANDIDATES=(win-x64 win-arm64 linux-x64 linux-arm64 osx-x64 osx-arm64)
 declare -A RID_RESULTS=()
 for rid in "${CANDIDATES[@]}"; do
   echo "--- RID $rid ---"
-  if publish_sc "$rid"; then
+  set +e
+  publish_sc "$rid"
+  sc_code=$?
+  set -e
+  if [[ "$sc_code" -eq 0 ]]; then
     RID_RESULTS["$rid"]=ok
   else
-    echo "Self-contained publish aborted; refusing silent SKIP." >&2
+    echo "Release aborted: self-contained publish for $rid failed (exit $sc_code). The dotnet publish output above shows the cause." >&2
     exit 1
   fi
 done

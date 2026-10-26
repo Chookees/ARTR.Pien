@@ -133,7 +133,7 @@ foreach ($rid in $candidateRids) {
   else {
     Write-Host "FAIL $rid — self-contained publish failed (exit $($result.ExitCode))."
     if ($result.Detail) { Write-Host "  detail: $($result.Detail)" }
-    throw "Self-contained publish aborted for $rid; refusing silent SKIP."
+    throw "Release aborted: self-contained publish for $rid failed (exit $($result.ExitCode)). The dotnet publish output above shows the cause."
   }
 }
 
