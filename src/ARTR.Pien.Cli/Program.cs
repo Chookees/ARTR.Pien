@@ -479,39 +479,13 @@ public static class Program
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var seconds = Math.Clamp(parseResult.GetValue(interval), 5, 86_400);
-            Console.Error.WriteLine($"Watching every {seconds}s. Press Ctrl+C to cancel.");
-            // Scans run with --quiet (progress + warnings suppressed); emit Brotli status once at watch start.
-            WatchCommandHandler.WriteStartupDiagnostics();
-            var cycle = 0;
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                cycle++;
-                Console.Error.WriteLine($"── watch cycle {cycle} @ {DateTimeOffset.UtcNow:O} ──");
-                var next = DateTimeOffset.UtcNow.AddSeconds(seconds);
-                var code = await BuildScanCommand().Parse(["scan", "--quiet"]).InvokeAsync(cancellationToken: cancellationToken);
-                if (code == (int)PienExitCode.Cancelled)
-                {
-                    return code;
-                }
-
-                Console.Error.WriteLine($"Next run at {next:O}");
-                var delay = next - DateTimeOffset.UtcNow;
-                if (delay < TimeSpan.Zero)
-                {
-                    delay = TimeSpan.FromSeconds(seconds);
-                }
-
-                try
-                {
-                    await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    return (int)PienExitCode.Cancelled;
-                }
-            }
-
-            return (int)PienExitCode.Cancelled;
+            return await WatchCommandHandler.RunAsync(
+                    seconds,
+                    ct => BuildScanCommand().Parse(["scan", "--quiet"]).InvokeAsync(cancellationToken: ct),
+                    TimeProvider.System,
+                    static (delay, ct) => Task.Delay(delay, ct),
+                    cancellationToken)
+                .ConfigureAwait(false);
         });
         return command;
     }

@@ -70,7 +70,7 @@ CI: `0` green; `1` expected test failure; `2–9` job error; `10` cancelled.
 | Flag / env | Applies | Behavior |
 |------------|---------|----------|
 | `--config <path>` | config-aware cmds | Override `./pien.json` |
-| `--quiet` / `-q` | scan, watch | Suppress progress and warnings on stderr (errors still print) |
+| `--quiet` / `-q` | scan | Suppress progress and warnings on stderr (errors still print) |
 | `--verbose` / `-v` | scan, watch, validate | Extra diagnostics on stderr (still no secrets) |
 | `--no-color` | all | Disable ANSI even on TTY |
 | `NO_COLOR` (any value) | all | Same as `--no-color` |
@@ -116,7 +116,7 @@ Default formats if empty: include `console`. Console summary on stdout; files un
 
 ### `watch`
 
-Flags: same scan overrides **plus** `--interval <seconds>` (default 300, min 1, max 86400).
+Flags: `--interval <seconds>` (default 300, min 5, max 86400). Each cycle runs a quiet scan (no per-cycle progress); runtime warnings such as the Brotli unpatched-runtime line print once at watch start.
 
 No cron parser. OS schedulers (Task Scheduler / cron / systemd) documented in HowToUse.
 

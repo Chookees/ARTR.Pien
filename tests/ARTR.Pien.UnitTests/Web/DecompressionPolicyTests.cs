@@ -121,7 +121,6 @@ public sealed class DecompressionPolicyTests : IDisposable
         var required = DecompressionPolicy.MinimumPatchedRuntime.ToString(3);
         Assert.Equal(ExpectedWarning(runtime), text);
         Assert.Contains($"older than {required}", text, StringComparison.Ordinal);
-        Assert.Equal(required, DecompressionPolicy.MinimumPatchedRuntime.ToString(3));
     }
 
     /// <summary>
