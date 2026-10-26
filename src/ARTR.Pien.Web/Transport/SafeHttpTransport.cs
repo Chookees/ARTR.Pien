@@ -100,7 +100,8 @@ public sealed class SafeHttpTransport : ISafeHttpTransport, IDisposable
 
     /// <summary>
     /// Sends one hop through a pinned <see cref="HttpClient"/>, applying the runtime-gated
-    /// decompression policy and mapping malformed Content-Encoding bodies to <see cref="Exceptions.HttpProtocolException"/>.
+    /// decompression policy and mapping malformed Content-Encoding body reads to
+    /// <see cref="Exceptions.HttpProtocolException"/>.
     /// </summary>
     private async Task<ProbeResult> SendOnceAsync(
         ProbeRequest request,
@@ -118,43 +119,44 @@ public sealed class SafeHttpTransport : ISafeHttpTransport, IDisposable
         var stopwatch = Stopwatch.StartNew();
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
-        try
-        {
-            using var response = await client.SendAsync(
-                message,
-                HttpCompletionOption.ResponseHeadersRead,
-                timeoutCts.Token).ConfigureAwait(false);
-            stopwatch.Stop();
+        using var response = await client.SendAsync(
+            message,
+            HttpCompletionOption.ResponseHeadersRead,
+            timeoutCts.Token).ConfigureAwait(false);
+        stopwatch.Stop();
 
-            var headers = CollectHeaders(response);
-            var maxBytes = Math.Max(0, request.MaxResponseBodyBytes);
-            var body = Array.Empty<byte>();
-            var truncated = false;
-            if (response.Content is not null && maxBytes > 0)
+        var headers = CollectHeaders(response);
+        var maxBytes = Math.Max(0, request.MaxResponseBodyBytes);
+        var body = Array.Empty<byte>();
+        var truncated = false;
+        if (response.Content is not null && maxBytes > 0)
+        {
+            // Catch is scoped to body read only so SendAsync InvalidOperationException is not
+            // misreported as a Content-Encoding decode failure. AutomaticDecompression throws
+            // InvalidOperationException/InvalidDataException while expanding malformed br/gzip.
+            try
             {
                 await using var stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token).ConfigureAwait(false);
                 (body, truncated) = await ReadBoundedAsync(stream, maxBytes, timeoutCts.Token).ConfigureAwait(false);
             }
-
-            headers.TryGetValue("Content-Type", out var contentType);
-            return ProbeResult.Create(new ProbeResult
+            catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException)
             {
-                FinalUri = endpoint.Uri,
-                StatusCode = response.StatusCode,
-                Headers = headers,
-                Body = body,
-                ContentType = contentType,
-                Duration = stopwatch.Elapsed,
-                BodyTruncated = truncated,
-                RedirectChain = redirectChain.ToArray(),
-            });
+                throw new Exceptions.HttpProtocolException("Response content decoding failed.", ex);
+            }
         }
-        catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException)
+
+        headers.TryGetValue("Content-Type", out var contentType);
+        return ProbeResult.Create(new ProbeResult
         {
-            // AutomaticDecompression throws these for malformed Content-Encoding payloads (e.g. invalid br).
-            // Map to the transport's protocol failure so callers get a defined Pien error, not a crash.
-            throw new Exceptions.HttpProtocolException("Response content decoding failed.", ex);
-        }
+            FinalUri = endpoint.Uri,
+            StatusCode = response.StatusCode,
+            Headers = headers,
+            Body = body,
+            ContentType = contentType,
+            Duration = stopwatch.Elapsed,
+            BodyTruncated = truncated,
+            RedirectChain = redirectChain.ToArray(),
+        });
     }
 
     private HttpRequestMessage BuildRequestMessage(ProbeRequest request, ValidatedEndpoint endpoint)

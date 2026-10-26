@@ -7,20 +7,21 @@ namespace ARTR.Pien.Web.Transport;
 /// Chooses <see cref="DecompressionMethods"/> for the safe HTTP transport based on the
 /// running .NET runtime version, so Brotli is only enabled on patched hosts.
 /// </summary>
-internal static class DecompressionPolicy
+public static class DecompressionPolicy
 {
     /// <summary>
     /// Minimum .NET runtime that includes the CVE-2026-111497 / GHSA-p3jp-9v83-76w9 fix
     /// (upstream google/brotli GHSA-9v8h-qqgm-4m35). Below this version Brotli stays off.
     /// </summary>
-    internal static readonly Version MinimumPatchedRuntime = new(10, 0, 14);
+    public static readonly Version MinimumPatchedRuntime = new(10, 0, 14);
 
     private static readonly AsyncLocal<Version?> RuntimeVersionOverride = new();
 
     private static int _unpatchedWarningEmitted;
 
     /// <summary>
-    /// Optional warning sink for tests; when null, warnings go to <see cref="Trace.TraceWarning(string?)"/>.
+    /// Optional warning sink for tests. When null, the library default is
+    /// <see cref="Trace.TraceWarning(string?)"/> only (never <see cref="Console.Error"/>).
     /// </summary>
     internal static Action<string>? WarningEmitter { get; set; }
 
@@ -55,23 +56,55 @@ internal static class DecompressionPolicy
     }
 
     /// <summary>
-    /// Selects AutomaticDecompression flags for <paramref name="runtime"/>.
-    /// Enables Brotli only when <paramref name="runtime"/> is at least
-    /// <see cref="MinimumPatchedRuntime"/>; otherwise keeps GZip|Deflate and emits a one-time warning.
+    /// Returns the Brotli gate status for <paramref name="runtime"/> without emitting diagnostics.
     /// </summary>
-    /// <param name="runtime">Runtime version under test or from <see cref="Environment.Version"/>.</param>
-    /// <returns>Decompression methods safe for that runtime.</returns>
-    internal static DecompressionMethods Select(Version runtime)
+    /// <param name="runtime">Runtime version to evaluate.</param>
+    /// <returns>Enabled flag, versions, and warning text when Brotli stays off.</returns>
+    public static BrotliStatus GetStatus(Version runtime)
     {
         ArgumentNullException.ThrowIfNull(runtime);
 
         if (runtime >= MinimumPatchedRuntime)
         {
-            return DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli;
+            return new BrotliStatus(
+                Enabled: true,
+                DetectedRuntime: runtime,
+                RequiredRuntime: MinimumPatchedRuntime,
+                Warning: null);
         }
 
-        EmitUnpatchedWarningOnce(runtime);
-        return DecompressionMethods.GZip | DecompressionMethods.Deflate;
+        return new BrotliStatus(
+            Enabled: false,
+            DetectedRuntime: runtime,
+            RequiredRuntime: MinimumPatchedRuntime,
+            Warning: FormatUnpatchedRuntimeWarning(runtime));
+    }
+
+    /// <summary>
+    /// Returns the Brotli gate status for <see cref="CurrentRuntimeVersion"/> without emitting diagnostics.
+    /// </summary>
+    /// <returns>Status for the effective runtime (override or <see cref="Environment.Version"/>).</returns>
+    public static BrotliStatus GetCurrentStatus()
+        => GetStatus(CurrentRuntimeVersion);
+
+    /// <summary>
+    /// Selects AutomaticDecompression flags for <paramref name="runtime"/>.
+    /// Enables Brotli only when <paramref name="runtime"/> is at least
+    /// <see cref="MinimumPatchedRuntime"/>; otherwise keeps GZip|Deflate and emits a one-time Trace warning.
+    /// </summary>
+    /// <param name="runtime">Runtime version under test or from <see cref="Environment.Version"/>.</param>
+    /// <returns>Decompression methods safe for that runtime.</returns>
+    internal static DecompressionMethods Select(Version runtime)
+    {
+        var status = GetStatus(runtime);
+        if (!status.Enabled && status.Warning is { } warning)
+        {
+            EmitUnpatchedWarningOnce(warning);
+        }
+
+        return status.Enabled
+            ? DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli
+            : DecompressionMethods.GZip | DecompressionMethods.Deflate;
     }
 
     /// <summary>
@@ -83,16 +116,16 @@ internal static class DecompressionPolicy
 
     /// <summary>
     /// Emits the unpatched-runtime Brotli warning at most once per process (thread-safe).
+    /// Library default is Trace only; hosts (CLI/Hosting) surface the same text via <see cref="GetStatus"/>.
     /// </summary>
-    /// <param name="runtime">Runtime version that failed the patch gate.</param>
-    private static void EmitUnpatchedWarningOnce(Version runtime)
+    /// <param name="message">Exact warning text to emit.</param>
+    private static void EmitUnpatchedWarningOnce(string message)
     {
         if (Interlocked.Exchange(ref _unpatchedWarningEmitted, 1) != 0)
         {
             return;
         }
 
-        var message = FormatUnpatchedRuntimeWarning(runtime);
         if (WarningEmitter is { } emitter)
         {
             emitter(message);

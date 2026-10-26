@@ -7,13 +7,33 @@ namespace ARTR.Pien.UnitTests.Web;
 /// <summary>
 /// Unit tests for the runtime-gated Brotli decompression policy (CVE-2026-111497).
 /// </summary>
-public sealed class DecompressionPolicyTests
+public sealed class DecompressionPolicyTests : IDisposable
 {
     private const DecompressionMethods GzipDeflate =
         DecompressionMethods.GZip | DecompressionMethods.Deflate;
 
     private const DecompressionMethods GzipDeflateBrotli =
         DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli;
+
+    /// <summary>
+    /// Resets process latch and test seams so cases stay order-independent.
+    /// </summary>
+    public DecompressionPolicyTests()
+    {
+        DecompressionPolicy.ResetWarningLatchForTests();
+        DecompressionPolicy.WarningEmitter = null;
+        DecompressionPolicy.SetRuntimeVersionOverrideForTests(null);
+    }
+
+    /// <summary>
+    /// Restores warning/override seams and clears the latch after each test.
+    /// </summary>
+    public void Dispose()
+    {
+        DecompressionPolicy.WarningEmitter = null;
+        DecompressionPolicy.SetRuntimeVersionOverrideForTests(null);
+        DecompressionPolicy.ResetWarningLatchForTests();
+    }
 
     /// <summary>
     /// Patched and newer runtimes must advertise and decode Brotli.
@@ -41,26 +61,79 @@ public sealed class DecompressionPolicyTests
     public void Select_keeps_brotli_off_on_unpatched_runtime(int major, int minor, int build)
     {
         var runtime = new Version(major, minor, build);
-        DecompressionPolicy.ResetWarningLatchForTests();
+        var sink = new List<string>();
+        DecompressionPolicy.WarningEmitter = sink.Add;
         try
         {
             Assert.Equal(GzipDeflate, DecompressionPolicy.Select(runtime));
         }
         finally
         {
+            DecompressionPolicy.WarningEmitter = null;
             DecompressionPolicy.ResetWarningLatchForTests();
         }
     }
 
     /// <summary>
-    /// On an unpatched runtime the operator-facing warning is emitted exactly once per process latch.
+    /// Status for 10.0.13 reports Enabled=false with the exact UX warning text.
+    /// </summary>
+    [Fact]
+    public void GetStatus_reports_disabled_with_warning_on_10_0_13()
+    {
+        var runtime = new Version(10, 0, 13);
+        var status = DecompressionPolicy.GetStatus(runtime);
+        Assert.False(status.Enabled);
+        Assert.Equal(runtime, status.DetectedRuntime);
+        Assert.Equal(DecompressionPolicy.MinimumPatchedRuntime, status.RequiredRuntime);
+        Assert.Equal(DecompressionPolicy.FormatUnpatchedRuntimeWarning(runtime), status.Warning);
+    }
+
+    /// <summary>
+    /// Status for 10.0.14 reports Enabled=true with no warning text.
+    /// </summary>
+    [Fact]
+    public void GetStatus_reports_enabled_without_warning_on_10_0_14()
+    {
+        var runtime = new Version(10, 0, 14);
+        var status = DecompressionPolicy.GetStatus(runtime);
+        Assert.True(status.Enabled);
+        Assert.Equal(runtime, status.DetectedRuntime);
+        Assert.Equal(DecompressionPolicy.MinimumPatchedRuntime, status.RequiredRuntime);
+        Assert.Null(status.Warning);
+    }
+
+    /// <summary>
+    /// Library default must not write to Console.Error (hosts own stderr).
+    /// </summary>
+    [Fact]
+    public void Select_default_emitter_does_not_write_to_console_error()
+    {
+        var runtime = new Version(10, 0, 13);
+        DecompressionPolicy.WarningEmitter = null;
+        var original = Console.Error;
+        using var captured = new StringWriter();
+        try
+        {
+            Console.SetError(captured);
+            _ = DecompressionPolicy.Select(runtime);
+            _ = DecompressionPolicy.Select(runtime);
+            Assert.Equal(string.Empty, captured.ToString());
+        }
+        finally
+        {
+            Console.SetError(original);
+            DecompressionPolicy.ResetWarningLatchForTests();
+        }
+    }
+
+    /// <summary>
+    /// On an unpatched runtime the Trace/WarningEmitter path fires exactly once per process latch.
     /// </summary>
     [Fact]
     public void Select_emits_unpatched_warning_once_on_old_runtime()
     {
         var runtime = new Version(10, 0, 13);
         var messages = new List<string>();
-        DecompressionPolicy.ResetWarningLatchForTests();
         DecompressionPolicy.WarningEmitter = messages.Add;
         try
         {
@@ -86,7 +159,6 @@ public sealed class DecompressionPolicyTests
     public void Select_does_not_warn_on_patched_runtime()
     {
         var messages = new List<string>();
-        DecompressionPolicy.ResetWarningLatchForTests();
         DecompressionPolicy.WarningEmitter = messages.Add;
         try
         {
@@ -97,6 +169,39 @@ public sealed class DecompressionPolicyTests
         finally
         {
             DecompressionPolicy.WarningEmitter = null;
+            DecompressionPolicy.ResetWarningLatchForTests();
+        }
+    }
+
+    /// <summary>
+    /// With runtime override 10.0.13, two SelectForCurrentRuntime calls emit once; 10.0.14 emits nothing.
+    /// </summary>
+    [Fact]
+    public void SelectForCurrentRuntime_warns_once_on_10_0_13_override_and_never_on_10_0_14()
+    {
+        var messages = new List<string>();
+        DecompressionPolicy.WarningEmitter = messages.Add;
+        try
+        {
+            DecompressionPolicy.SetRuntimeVersionOverrideForTests(new Version(10, 0, 13));
+            _ = DecompressionPolicy.SelectForCurrentRuntime();
+            _ = DecompressionPolicy.SelectForCurrentRuntime();
+            Assert.Single(messages);
+            Assert.Equal(
+                DecompressionPolicy.FormatUnpatchedRuntimeWarning(new Version(10, 0, 13)),
+                messages[0]);
+
+            messages.Clear();
+            DecompressionPolicy.ResetWarningLatchForTests();
+            DecompressionPolicy.SetRuntimeVersionOverrideForTests(new Version(10, 0, 14));
+            _ = DecompressionPolicy.SelectForCurrentRuntime();
+            _ = DecompressionPolicy.SelectForCurrentRuntime();
+            Assert.Empty(messages);
+        }
+        finally
+        {
+            DecompressionPolicy.WarningEmitter = null;
+            DecompressionPolicy.SetRuntimeVersionOverrideForTests(null);
             DecompressionPolicy.ResetWarningLatchForTests();
         }
     }

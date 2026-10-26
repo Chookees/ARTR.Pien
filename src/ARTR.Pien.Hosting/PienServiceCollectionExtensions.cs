@@ -15,6 +15,7 @@ using ARTR.Pien.Web.Tls;
 using ARTR.Pien.Web.Transport;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace ARTR.Pien.Hosting;
 
@@ -48,6 +49,9 @@ public static class PienServiceCollectionExtensions
         });
         services.AddSingleton<ISafeHttpTransport>(sp =>
         {
+            // No health/diagnostics endpoint or GUI notice exists in Hosting; ILogger is the host channel.
+            var logger = sp.GetService<ILoggerFactory>()?.CreateLogger("ARTR.Pien.Transport.Brotli");
+            BrotliRuntimeHostDiagnostics.LogIfDisabled(logger, DecompressionPolicy.GetCurrentStatus());
             var opts = sp.GetRequiredService<PienHostingOptions>();
             return new SafeHttpTransport(
                 sp.GetRequiredService<IDestinationValidator>(),
