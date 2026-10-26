@@ -1,5 +1,6 @@
 using System.Net;
 
+using ARTR.Pien.UnitTests.Brotli;
 using ARTR.Pien.Web.Transport;
 
 namespace ARTR.Pien.UnitTests.Web;
@@ -7,6 +8,7 @@ namespace ARTR.Pien.UnitTests.Web;
 /// <summary>
 /// Unit tests for the runtime-gated Brotli decompression policy (CVE-2026-111497).
 /// </summary>
+[Collection(nameof(BrotliDiagnosticsCollection))]
 public sealed class DecompressionPolicyTests : IDisposable
 {
     private const DecompressionMethods GzipDeflate =
@@ -14,6 +16,12 @@ public sealed class DecompressionPolicyTests : IDisposable
 
     private const DecompressionMethods GzipDeflateBrotli =
         DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli;
+
+    /// <summary>
+    /// Builds the expected UX warning for <paramref name="runtime"/> from <see cref="DecompressionPolicy.MinimumPatchedRuntime"/>.
+    /// </summary>
+    private static string ExpectedWarning(Version runtime)
+        => $"Brotli decompression disabled: runtime {runtime} is older than {DecompressionPolicy.MinimumPatchedRuntime.ToString(3)} (CVE-2026-111497). 'br' is not advertised; responses with Content-Encoding: br are returned undecoded.";
 
     /// <summary>
     /// Resets process latch and test seams so cases stay order-independent.
@@ -75,7 +83,7 @@ public sealed class DecompressionPolicyTests : IDisposable
     }
 
     /// <summary>
-    /// Status for 10.0.13 reports Enabled=false with the exact UX warning text.
+    /// Status for 10.0.13 reports Enabled=false with warning text derived from MinimumPatchedRuntime.
     /// </summary>
     [Fact]
     public void GetStatus_reports_disabled_with_warning_on_10_0_13()
@@ -85,7 +93,7 @@ public sealed class DecompressionPolicyTests : IDisposable
         Assert.False(status.Enabled);
         Assert.Equal(runtime, status.DetectedRuntime);
         Assert.Equal(DecompressionPolicy.MinimumPatchedRuntime, status.RequiredRuntime);
-        Assert.Equal(DecompressionPolicy.FormatUnpatchedRuntimeWarning(runtime), status.Warning);
+        Assert.Equal(ExpectedWarning(runtime), status.Warning);
     }
 
     /// <summary>
@@ -100,6 +108,20 @@ public sealed class DecompressionPolicyTests : IDisposable
         Assert.Equal(runtime, status.DetectedRuntime);
         Assert.Equal(DecompressionPolicy.MinimumPatchedRuntime, status.RequiredRuntime);
         Assert.Null(status.Warning);
+    }
+
+    /// <summary>
+    /// Warning text embeds <see cref="DecompressionPolicy.MinimumPatchedRuntime"/>.<c>ToString(3)</c>, not a separate literal.
+    /// </summary>
+    [Fact]
+    public void FormatUnpatchedRuntimeWarning_embeds_MinimumPatchedRuntime_ToString3()
+    {
+        var runtime = new Version(10, 0, 13);
+        var text = DecompressionPolicy.FormatUnpatchedRuntimeWarning(runtime);
+        var required = DecompressionPolicy.MinimumPatchedRuntime.ToString(3);
+        Assert.Equal(ExpectedWarning(runtime), text);
+        Assert.Contains($"older than {required}", text, StringComparison.Ordinal);
+        Assert.Equal(required, DecompressionPolicy.MinimumPatchedRuntime.ToString(3));
     }
 
     /// <summary>
@@ -140,10 +162,7 @@ public sealed class DecompressionPolicyTests : IDisposable
             _ = DecompressionPolicy.Select(runtime);
             _ = DecompressionPolicy.Select(runtime);
             Assert.Single(messages);
-            Assert.Equal(DecompressionPolicy.FormatUnpatchedRuntimeWarning(runtime), messages[0]);
-            Assert.Equal(
-                "Brotli decompression disabled: runtime 10.0.13 is older than 10.0.14 (CVE-2026-111497). 'br' is not advertised; responses with Content-Encoding: br are returned undecoded.",
-                messages[0]);
+            Assert.Equal(ExpectedWarning(runtime), messages[0]);
         }
         finally
         {
@@ -187,9 +206,7 @@ public sealed class DecompressionPolicyTests : IDisposable
             _ = DecompressionPolicy.SelectForCurrentRuntime();
             _ = DecompressionPolicy.SelectForCurrentRuntime();
             Assert.Single(messages);
-            Assert.Equal(
-                DecompressionPolicy.FormatUnpatchedRuntimeWarning(new Version(10, 0, 13)),
-                messages[0]);
+            Assert.Equal(ExpectedWarning(new Version(10, 0, 13)), messages[0]);
 
             messages.Clear();
             DecompressionPolicy.ResetWarningLatchForTests();

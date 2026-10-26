@@ -480,6 +480,8 @@ public static class Program
         {
             var seconds = Math.Clamp(parseResult.GetValue(interval), 5, 86_400);
             Console.Error.WriteLine($"Watching every {seconds}s. Press Ctrl+C to cancel.");
+            // Scans run with --quiet (progress + warnings suppressed); emit Brotli status once at watch start.
+            WatchCommandHandler.WriteStartupDiagnostics();
             var cycle = 0;
             while (!cancellationToken.IsCancellationRequested)
             {

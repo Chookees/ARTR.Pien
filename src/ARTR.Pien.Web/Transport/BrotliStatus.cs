@@ -5,7 +5,7 @@ namespace ARTR.Pien.Web.Transport;
 /// </summary>
 /// <param name="Enabled">True when AutomaticDecompression includes Brotli for the detected runtime.</param>
 /// <param name="DetectedRuntime">Runtime version used for the gate (override or <see cref="Environment.Version"/>).</param>
-/// <param name="RequiredRuntime">Minimum patched runtime (CVE-2026-111497), currently 10.0.14.</param>
+/// <param name="RequiredRuntime">Minimum patched runtime (CVE-2026-111497); equals <see cref="DecompressionPolicy.MinimumPatchedRuntime"/>.</param>
 /// <param name="Warning">Operator-facing warning when Brotli is off; null when enabled.</param>
 public readonly record struct BrotliStatus(
     bool Enabled,

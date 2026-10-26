@@ -46,13 +46,14 @@ public static class DecompressionPolicy
 
     /// <summary>
     /// Formats the one-time warning logged when Brotli stays disabled on an unpatched runtime.
+    /// The threshold is taken from <see cref="MinimumPatchedRuntime"/> (not a separate literal).
     /// </summary>
     /// <param name="runtime">Detected runtime version included in the message.</param>
     /// <returns>Exact operator-facing warning text.</returns>
     internal static string FormatUnpatchedRuntimeWarning(Version runtime)
     {
         ArgumentNullException.ThrowIfNull(runtime);
-        return $"Brotli decompression disabled: runtime {runtime} is older than 10.0.14 (CVE-2026-111497). 'br' is not advertised; responses with Content-Encoding: br are returned undecoded.";
+        return $"Brotli decompression disabled: runtime {runtime} is older than {MinimumPatchedRuntime.ToString(3)} (CVE-2026-111497). 'br' is not advertised; responses with Content-Encoding: br are returned undecoded.";
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using ARTR.Pien.Cli;
+using ARTR.Pien.UnitTests.Brotli;
 using ARTR.Pien.Web.Transport;
 
 namespace ARTR.Pien.UnitTests.Cli;
@@ -6,8 +7,18 @@ namespace ARTR.Pien.UnitTests.Cli;
 /// <summary>
 /// CLI stderr surfacing of the Brotli runtime gate (CVE-2026-111497).
 /// </summary>
+[Collection(nameof(BrotliDiagnosticsCollection))]
 public sealed class BrotliRuntimeWarningWriterTests : IDisposable
 {
+    /// <summary>
+    /// Builds the expected <c>warning:</c> stderr line from <see cref="DecompressionPolicy.MinimumPatchedRuntime"/>.
+    /// </summary>
+    private static string ExpectedWarningLine(Version runtime)
+        => "warning: Brotli decompression disabled: runtime " + runtime + " is older than "
+            + DecompressionPolicy.MinimumPatchedRuntime.ToString(3)
+            + " (CVE-2026-111497). 'br' is not advertised; responses with Content-Encoding: br are returned undecoded."
+            + Environment.NewLine;
+
     /// <summary>
     /// Clears CLI/Web test seams so cases stay order-independent.
     /// </summary>
@@ -40,10 +51,7 @@ public sealed class BrotliRuntimeWarningWriterTests : IDisposable
             Console.SetError(captured);
             BrotliRuntimeWarningWriter.WriteToStderrIfNeeded(quiet: false, status);
             BrotliRuntimeWarningWriter.WriteToStderrIfNeeded(quiet: false, status);
-            Assert.Equal(
-                "warning: Brotli decompression disabled: runtime 10.0.13 is older than 10.0.14 (CVE-2026-111497). 'br' is not advertised; responses with Content-Encoding: br are returned undecoded."
-                    + Environment.NewLine,
-                captured.ToString());
+            Assert.Equal(ExpectedWarningLine(new Version(10, 0, 13)), captured.ToString());
         }
         finally
         {
@@ -94,4 +102,76 @@ public sealed class BrotliRuntimeWarningWriterTests : IDisposable
             Console.SetError(original);
         }
     }
+
+    /// <summary>
+    /// Watch start emits the warning once; quiet per-cycle scans must not add more lines (seam 10.0.13).
+    /// </summary>
+    [Fact]
+    public void Watch_prints_brotli_warning_once_across_multiple_quiet_cycles_on_10_0_13()
+    {
+        DecompressionPolicy.SetRuntimeVersionOverrideForTests(new Version(10, 0, 13));
+        BrotliRuntimeWarningWriter.ResetForTests();
+        var original = Console.Error;
+        using var captured = new StringWriter();
+        try
+        {
+            Console.SetError(captured);
+            // Mirror Program.BuildWatchCommand: Watching line, then startup diagnostics, then quiet scans.
+            Console.Error.WriteLine("Watching every 5s. Press Ctrl+C to cancel.");
+            WatchCommandHandler.WriteStartupDiagnostics();
+            var status = DecompressionPolicy.GetCurrentStatus();
+            for (var cycle = 0; cycle < 3; cycle++)
+            {
+                BrotliRuntimeWarningWriter.WriteToStderrIfNeeded(quiet: true, status);
+            }
+
+            var text = captured.ToString();
+            Assert.StartsWith("Watching every 5s.", text, StringComparison.Ordinal);
+            Assert.Equal(1, CountWarningLines(text));
+            Assert.Contains(ExpectedWarningLine(new Version(10, 0, 13)).TrimEnd(), text, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Console.SetError(original);
+            DecompressionPolicy.SetRuntimeVersionOverrideForTests(null);
+            BrotliRuntimeWarningWriter.ResetForTests();
+        }
+    }
+
+    /// <summary>
+    /// Watch start emits nothing on a patched runtime (seam 10.0.14).
+    /// </summary>
+    [Fact]
+    public void Watch_prints_no_brotli_warning_on_10_0_14()
+    {
+        DecompressionPolicy.SetRuntimeVersionOverrideForTests(new Version(10, 0, 14));
+        BrotliRuntimeWarningWriter.ResetForTests();
+        var original = Console.Error;
+        using var captured = new StringWriter();
+        try
+        {
+            Console.SetError(captured);
+            WatchCommandHandler.WriteStartupDiagnostics();
+            var status = DecompressionPolicy.GetCurrentStatus();
+            for (var cycle = 0; cycle < 3; cycle++)
+            {
+                BrotliRuntimeWarningWriter.WriteToStderrIfNeeded(quiet: true, status);
+            }
+
+            Assert.Equal(0, CountWarningLines(captured.ToString()));
+        }
+        finally
+        {
+            Console.SetError(original);
+            DecompressionPolicy.SetRuntimeVersionOverrideForTests(null);
+            BrotliRuntimeWarningWriter.ResetForTests();
+        }
+    }
+
+    /// <summary>
+    /// Counts stderr lines that use the CLI <c>warning:</c> prefix.
+    /// </summary>
+    private static int CountWarningLines(string stderr)
+        => stderr.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Count(line => line.StartsWith("warning:", StringComparison.Ordinal));
 }
