@@ -3,6 +3,7 @@
 **Research date:** 2026-08-05  
 **Re-verified:** 2026-08-05 via `https://api.nuget.org/v3-flatcontainer/{id}/index.json` and package pages  
 **SDK pin:** `global.json` → `10.0.302`  
+> Note: the SDK pin was later raised to `10.0.403` (runtime `10.0.14`) for CVE-2026-111497.  
 **Policy:** Prefer BCL / `Microsoft.Extensions.*`; Central Package Management; locked restore; NuGet audit; Apache-2.0-compatible redistribution.
 
 ## Verification notes (architect pass)
