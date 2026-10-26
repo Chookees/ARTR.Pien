@@ -37,21 +37,35 @@ publish_sc() {
   local out="$SC_ROOT/$rid"
   rm -rf "$out"
   mkdir -p "$out"
-  if dotnet publish "$CLI_PROJECT" \
+  local log code
+  log="$(mktemp)"
+  set +e
+  # EnablePienAnalyzers=false: -r makes referenced projects (including the Roslyn
+  # analyzer) build under that RID; an arm64 analyzer DLL cannot load on an x64
+  # host compiler. Release SC publish still compiles the product for the RID.
+  dotnet publish "$CLI_PROJECT" \
       -c "$CONFIGURATION" \
       -r "$rid" \
       --self-contained true \
       -o "$out" \
+      -p:EnablePienAnalyzers=false \
       -p:PublishReadyToRun=false \
       -p:PublishSingleFile=false \
       -p:PublishTrimmed=false \
-      -p:PublishAot=false; then
+      -p:PublishAot=false >"$log" 2>&1
+  code=$?
+  set -e
+  if [[ "$code" -eq 0 ]]; then
+    cat "$log"
+    rm -f "$log"
     echo "OK   $rid → $out"
     return 0
   fi
+  cat "$log" >&2
+  rm -f "$log"
   rm -rf "$out"
-  echo "SKIP $rid — SDK/runtime pack unavailable or publish unsupported without Docker."
-  return 1
+  echo "FAIL $rid — self-contained publish failed (exit $code)." >&2
+  return "$code"
 }
 
 rm -rf "$PUBLISH_ROOT"
@@ -85,7 +99,8 @@ for rid in "${CANDIDATES[@]}"; do
   if publish_sc "$rid"; then
     RID_RESULTS["$rid"]=ok
   else
-    RID_RESULTS["$rid"]=skipped
+    echo "Self-contained publish aborted; refusing silent SKIP." >&2
+    exit 1
   fi
 done
 
@@ -102,7 +117,14 @@ PACKABLE=(
 )
 for rel in "${PACKABLE[@]}"; do
   echo "Pack $rel"
-  dotnet pack "$ROOT/$rel" -c "$CONFIGURATION" -o "$NUPKG_OUT" --no-restore
+  # PackAsTool + RuntimeIdentifiers expands into RID-specific/empty packs (NU5017).
+  # RIDs stay declared for locked restore/SC publish; clear them only while packing Cli.
+  if [[ "$rel" == *"/ARTR.Pien.Cli/"* ]]; then
+    dotnet pack "$ROOT/$rel" -c "$CONFIGURATION" -o "$NUPKG_OUT" --no-restore \
+      -p:RuntimeIdentifiers= -p:RuntimeIdentifier=
+  else
+    dotnet pack "$ROOT/$rel" -c "$CONFIGURATION" -o "$NUPKG_OUT" --no-restore
+  fi
 done
 echo "NuGet packages → $NUPKG_OUT"
 ls -1 "$NUPKG_OUT"

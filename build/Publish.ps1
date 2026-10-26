@@ -50,11 +50,14 @@ function Invoke-SelfContainedPublish([string]$Rid, [string]$OutDir) {
 
   $prevEap = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
+  # EnablePienAnalyzers=false: -r builds ProjectReferences under that RID; an
+  # arm64 analyzer cannot load on an x64 host compiler during cross-publish.
   $output = & dotnet publish $cliProject `
     -c $Configuration `
     -r $Rid `
     --self-contained true `
     -o $OutDir `
+    -p:EnablePienAnalyzers=false `
     -p:PublishReadyToRun=false `
     -p:PublishSingleFile=false `
     -p:PublishTrimmed=false `
@@ -64,11 +67,13 @@ function Invoke-SelfContainedPublish([string]$Rid, [string]$OutDir) {
 
   if ($code -ne 0) {
     Remove-Item $OutDir -Recurse -Force -ErrorAction SilentlyContinue
+    $output | ForEach-Object { Write-Host $_ }
     $detail = (($output | Out-String).Trim() -replace '\s+', ' ')
     if ($detail.Length -gt 300) { $detail = $detail.Substring(0, 300) + "..." }
-    return @{ Ok = $false; Detail = $detail }
+    return @{ Ok = $false; Detail = $detail; ExitCode = $code }
   }
-  return @{ Ok = $true; Detail = "ok" }
+  $output | ForEach-Object { Write-Host $_ }
+  return @{ Ok = $true; Detail = "ok"; ExitCode = 0 }
 }
 
 # Fresh publish tree (keep sibling artifacts like source zip / coverage).
@@ -126,9 +131,9 @@ foreach ($rid in $candidateRids) {
     $ridResults[$rid] = "ok"
   }
   else {
-    Write-Host "SKIP $rid — SDK/runtime pack unavailable or publish unsupported without Docker."
+    Write-Host "FAIL $rid — self-contained publish failed (exit $($result.ExitCode))."
     if ($result.Detail) { Write-Host "  detail: $($result.Detail)" }
-    $ridResults[$rid] = "skipped"
+    throw "Self-contained publish aborted for $rid; refusing silent SKIP."
   }
 }
 
@@ -147,7 +152,15 @@ $packable = @(
 foreach ($rel in $packable) {
   $proj = Join-Path $root $rel
   Write-Host "Pack $rel"
-  dotnet pack $proj -c $Configuration -o $nupkgOut --no-restore
+  # PackAsTool + RuntimeIdentifiers expands into RID-specific/empty packs (NU5017).
+  # RIDs stay declared for locked restore/SC publish; clear them only while packing Cli.
+  if ($rel -like "*ARTR.Pien.Cli*") {
+    dotnet pack $proj -c $Configuration -o $nupkgOut --no-restore `
+      -p:RuntimeIdentifiers= -p:RuntimeIdentifier=
+  }
+  else {
+    dotnet pack $proj -c $Configuration -o $nupkgOut --no-restore
+  }
   if ($LASTEXITCODE -ne 0) { throw "dotnet pack failed for $rel ($LASTEXITCODE)" }
 }
 Write-Host "NuGet packages → $nupkgOut"

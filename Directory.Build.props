@@ -53,6 +53,9 @@
 
   <PropertyGroup Condition="'$(IsPienProductionProject)' == 'true'">
     <IsPackable>true</IsPackable>
+    <!-- Release self-contained RIDs (build/Publish.sh). Kept in lockfiles so
+         GITHUB_ACTIONS RestoreLockedMode restore/publish does not hit NU1004. -->
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(IsPienProductionProject)' != 'true'">
