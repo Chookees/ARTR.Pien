@@ -93,13 +93,18 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
             ctx.Response.ContentType = "text/plain";
             await ctx.Response.WriteAsync(ctx.Request.Headers.AcceptEncoding.ToString());
         });
-        app.MapGet("/fake-brotli", async ctx =>
+        app.MapGet("/malformed-brotli", async ctx =>
         {
-            // Not valid Brotli on purpose: the transport must hand these bytes back verbatim
-            // instead of feeding them to the native Brotli decoder.
+            // Intentionally invalid Brotli: on patched runtimes AutomaticDecompression must fail
+            // in a defined way (HttpProtocolException), not crash the process.
             ctx.Response.ContentType = "text/plain";
             ctx.Response.Headers.ContentEncoding = "br";
             await ctx.Response.WriteAsync("not-brotli");
+        });
+        app.MapGet("/brotli-hello", async ctx =>
+        {
+            // Valid Brotli body used both for decode-on-patched and undecoded-on-unpatched tests.
+            await WriteBrotliUtf8Async(ctx, "brotli-ok");
         });
         // GAP-PIEN27-GZIP-BOMB-TEST: compressed zeros that expand past BodyInspectionLimitBytes.
         app.MapGet("/gzip-over-limit", async ctx =>
@@ -121,6 +126,25 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
         app.MapGet("/gzip-1mib-under", async ctx =>
         {
             await WriteGzipZerosAsync(ctx, (1L * 1024 * 1024) - 1);
+        });
+        // Brotli mirrors of the gzip size-limit controls (same MaxResponseBodyBytes bound).
+        app.MapGet("/brotli-over-limit", async ctx =>
+        {
+            var limit = ScanLimits.Default.BodyInspectionLimitBytes;
+            await WriteBrotliZerosAsync(ctx, Math.Max(limit + 1024, 10L * 1024 * 1024));
+        });
+        app.MapGet("/brotli-under-limit", async ctx =>
+        {
+            var limit = ScanLimits.Default.BodyInspectionLimitBytes;
+            await WriteBrotliZerosAsync(ctx, limit - 1);
+        });
+        app.MapGet("/brotli-1mib-over", async ctx =>
+        {
+            await WriteBrotliZerosAsync(ctx, (1L * 1024 * 1024) + 1024);
+        });
+        app.MapGet("/brotli-1mib-under", async ctx =>
+        {
+            await WriteBrotliZerosAsync(ctx, (1L * 1024 * 1024) - 1);
         });
         app.MapGet("/api/health", async ctx =>
         {
@@ -173,25 +197,138 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
         Assert.Contains("Home", Encoding.UTF8.GetString(result.Body.Span), StringComparison.Ordinal);
     }
 
-    // CVE-2026-111497 / GHSA-p3jp-9v83-76w9 (upstream google/brotli GHSA-9v8h-qqgm-4m35): Brotli must not be advertised to untrusted servers.
+    // CVE-2026-111497: Accept-Encoding must match DecompressionPolicy for the test runtime
+    // (SDK 10.0.403 / runtime 10.0.14 advertises br; unpatched hosts must not).
     [Fact]
-    public async Task Transport_does_not_advertise_brotli()
+    public async Task Transport_advertises_brotli_on_patched_runtime()
     {
         var result = await SendLoopbackGetAsync("/accept-encoding");
         var acceptEncoding = Encoding.UTF8.GetString(result.Body.Span);
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Contains("gzip", acceptEncoding, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("br", acceptEncoding, StringComparison.OrdinalIgnoreCase);
+
+        var methods = DecompressionPolicy.Select(Environment.Version);
+        if ((methods & DecompressionMethods.Brotli) != 0)
+        {
+            Assert.Contains("br", acceptEncoding, StringComparison.OrdinalIgnoreCase);
+        }
+        else
+        {
+            Assert.DoesNotContain("br", acceptEncoding, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
-    // CVE-2026-111497 / GHSA-p3jp-9v83-76w9 (upstream google/brotli GHSA-9v8h-qqgm-4m35): a "Content-Encoding: br" body must reach the caller
-    // undecoded, which proves the native Brotli decoder never runs on server bytes.
+    // On a patched runtime, a valid Content-Encoding: br body is decoded before the body bound runs.
     [Fact]
-    public async Task Transport_does_not_decode_brotli_responses()
+    public async Task Transport_decodes_valid_brotli_response()
     {
-        var result = await SendLoopbackGetAsync("/fake-brotli");
+        var methods = DecompressionPolicy.Select(Environment.Version);
+        Assert.True(
+            (methods & DecompressionMethods.Brotli) != 0,
+            "This test requires a patched runtime that enables Brotli (10.0.14+).");
+
+        var result = await SendLoopbackGetAsync("/brotli-hello");
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
-        Assert.Equal("not-brotli", Encoding.UTF8.GetString(result.Body.Span));
+        Assert.Equal("brotli-ok", Encoding.UTF8.GetString(result.Body.Span));
+    }
+
+    // Injected 10.0.13: no br in Accept-Encoding, and a valid br body is returned as raw compressed bytes.
+    [Fact]
+    public async Task Transport_keeps_brotli_off_on_unpatched_runtime()
+    {
+        var expectedCompressed = await CompressBrotliUtf8Async("brotli-ok");
+        DecompressionPolicy.SetRuntimeVersionOverrideForTests(new Version(10, 0, 13));
+        try
+        {
+            var accept = await SendLoopbackGetAsync("/accept-encoding");
+            var acceptEncoding = Encoding.UTF8.GetString(accept.Body.Span);
+            Assert.Equal(HttpStatusCode.OK, accept.StatusCode);
+            Assert.Contains("gzip", acceptEncoding, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("br", acceptEncoding, StringComparison.OrdinalIgnoreCase);
+
+            var body = await SendLoopbackGetAsync("/brotli-hello");
+            Assert.Equal(HttpStatusCode.OK, body.StatusCode);
+            Assert.True(body.Body.Span.SequenceEqual(expectedCompressed));
+        }
+        finally
+        {
+            DecompressionPolicy.SetRuntimeVersionOverrideForTests(null);
+        }
+    }
+
+    // Malformed br must map to HttpProtocolException (defined transport failure), not an unhandled crash.
+    [Fact]
+    public async Task Transport_maps_malformed_brotli_to_http_protocol_exception()
+    {
+        var methods = DecompressionPolicy.Select(Environment.Version);
+        Assert.True(
+            (methods & DecompressionMethods.Brotli) != 0,
+            "This test requires a patched runtime that enables Brotli (10.0.14+).");
+
+        var ex = await Assert.ThrowsAsync<ARTR.Pien.Exceptions.HttpProtocolException>(
+            () => SendLoopbackGetAsync("/malformed-brotli"));
+        Assert.Contains("decoding failed", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(ex.InnerException);
+    }
+
+    // Brotli bomb: few KB on the wire, expands past the inspection limit (and to >= 10 MiB), truncated exactly at MaxResponseBodyBytes.
+    [Fact]
+    public async Task Transport_truncates_brotli_body_above_inspection_limit()
+    {
+        var methods = DecompressionPolicy.Select(Environment.Version);
+        Assert.True(
+            (methods & DecompressionMethods.Brotli) != 0,
+            "This test requires a patched runtime that enables Brotli (10.0.14+).");
+
+        var limit = ScanLimits.Default.BodyInspectionLimitBytes;
+        var uncompressed = Math.Max(limit + 1024, 10L * 1024 * 1024);
+        var compressed = await CompressBrotliZerosAsync(uncompressed);
+        Assert.True(compressed.Length < 64 * 1024, $"Expected a few KB compressed, got {compressed.Length} bytes.");
+        Assert.True(uncompressed >= 10L * 1024 * 1024);
+
+        var result = await SendLoopbackGetAsync("/brotli-over-limit");
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.True(result.BodyTruncated);
+        Assert.Equal(limit, result.Body.Length);
+        Assert.True(result.Body.Length <= limit);
+    }
+
+    // Control: Brotli that decompresses to just under the limit is returned in full.
+    [Fact]
+    public async Task Transport_returns_full_brotli_body_just_under_inspection_limit()
+    {
+        var methods = DecompressionPolicy.Select(Environment.Version);
+        Assert.True(
+            (methods & DecompressionMethods.Brotli) != 0,
+            "This test requires a patched runtime that enables Brotli (10.0.14+).");
+
+        var limit = ScanLimits.Default.BodyInspectionLimitBytes;
+        var result = await SendLoopbackGetAsync("/brotli-under-limit");
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        Assert.False(result.BodyTruncated);
+        Assert.Equal(limit - 1, result.Body.Length);
+    }
+
+    // Non-default 1 MiB MaxResponseBodyBytes bound applies to Brotli the same way as gzip.
+    [Fact]
+    public async Task Transport_honors_non_default_one_mib_brotli_body_limit()
+    {
+        var methods = DecompressionPolicy.Select(Environment.Version);
+        Assert.True(
+            (methods & DecompressionMethods.Brotli) != 0,
+            "This test requires a patched runtime that enables Brotli (10.0.14+).");
+
+        const long limit = 1L * 1024 * 1024;
+        var over = await SendLoopbackGetAsync("/brotli-1mib-over", limit);
+        Assert.Equal(HttpStatusCode.OK, over.StatusCode);
+        Assert.True(over.BodyTruncated);
+        Assert.Equal(limit, over.Body.Length);
+        Assert.True(over.Body.Length <= limit);
+
+        var under = await SendLoopbackGetAsync("/brotli-1mib-under", limit);
+        Assert.Equal(HttpStatusCode.OK, under.StatusCode);
+        Assert.False(under.BodyTruncated);
+        Assert.Equal(limit - 1, under.Body.Length);
     }
 
     // GAP-PIEN27-GZIP-BOMB-TEST: HttpClient auto-decompresses gzip before ReadBoundedAsync runs.
@@ -502,5 +639,66 @@ public sealed class LoopbackTransportEngineTests : IAsyncLifetime
             await gzip.WriteAsync(chunk.AsMemory(0, write), ctx.RequestAborted);
             remaining -= write;
         }
+    }
+
+    /// <summary>
+    /// Writes a Brotli payload of <paramref name="uncompressedLength"/> zero bytes with
+    /// <c>Content-Encoding: br</c> so AutomaticDecompression expands it before the body bound runs.
+    /// </summary>
+    private static async Task WriteBrotliZerosAsync(HttpContext ctx, long uncompressedLength)
+    {
+        var compressed = await CompressBrotliZerosAsync(uncompressedLength);
+        ctx.Response.ContentType = "application/octet-stream";
+        ctx.Response.Headers.ContentEncoding = "br";
+        ctx.Response.ContentLength = compressed.Length;
+        await ctx.Response.Body.WriteAsync(compressed, ctx.RequestAborted);
+    }
+
+    /// <summary>
+    /// Writes <paramref name="text"/> as a Brotli-compressed UTF-8 body with <c>Content-Encoding: br</c>.
+    /// </summary>
+    private static async Task WriteBrotliUtf8Async(HttpContext ctx, string text)
+    {
+        var compressed = await CompressBrotliUtf8Async(text);
+        ctx.Response.ContentType = "text/plain";
+        ctx.Response.Headers.ContentEncoding = "br";
+        ctx.Response.ContentLength = compressed.Length;
+        await ctx.Response.Body.WriteAsync(compressed, ctx.RequestAborted);
+    }
+
+    /// <summary>
+    /// Compresses <paramref name="uncompressedLength"/> zero bytes with Brotli for size assertions and responses.
+    /// </summary>
+    private static async Task<byte[]> CompressBrotliZerosAsync(long uncompressedLength)
+    {
+        using var ms = new MemoryStream();
+        await using (var brotli = new BrotliStream(ms, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            var chunk = new byte[64 * 1024];
+            var remaining = uncompressedLength;
+            while (remaining > 0)
+            {
+                var write = (int)Math.Min(remaining, chunk.Length);
+                await brotli.WriteAsync(chunk.AsMemory(0, write));
+                remaining -= write;
+            }
+        }
+
+        return ms.ToArray();
+    }
+
+    /// <summary>
+    /// Compresses <paramref name="text"/> as UTF-8 Brotli bytes (for undecoded-body comparisons).
+    /// </summary>
+    private static async Task<byte[]> CompressBrotliUtf8Async(string text)
+    {
+        using var ms = new MemoryStream();
+        await using (var brotli = new BrotliStream(ms, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            var bytes = Encoding.UTF8.GetBytes(text);
+            await brotli.WriteAsync(bytes);
+        }
+
+        return ms.ToArray();
     }
 }

@@ -98,6 +98,10 @@ public sealed class SafeHttpTransport : ISafeHttpTransport, IDisposable
         return last ?? throw new Exceptions.HttpProtocolException("Safe HTTP transport produced no result.");
     }
 
+    /// <summary>
+    /// Sends one hop through a pinned <see cref="HttpClient"/>, applying the runtime-gated
+    /// decompression policy and mapping malformed Content-Encoding bodies to <see cref="Exceptions.HttpProtocolException"/>.
+    /// </summary>
     private async Task<ProbeResult> SendOnceAsync(
         ProbeRequest request,
         ValidatedEndpoint endpoint,
@@ -114,34 +118,43 @@ public sealed class SafeHttpTransport : ISafeHttpTransport, IDisposable
         var stopwatch = Stopwatch.StartNew();
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
-        using var response = await client.SendAsync(
-            message,
-            HttpCompletionOption.ResponseHeadersRead,
-            timeoutCts.Token).ConfigureAwait(false);
-        stopwatch.Stop();
-
-        var headers = CollectHeaders(response);
-        var maxBytes = Math.Max(0, request.MaxResponseBodyBytes);
-        var body = Array.Empty<byte>();
-        var truncated = false;
-        if (response.Content is not null && maxBytes > 0)
+        try
         {
-            await using var stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token).ConfigureAwait(false);
-            (body, truncated) = await ReadBoundedAsync(stream, maxBytes, timeoutCts.Token).ConfigureAwait(false);
+            using var response = await client.SendAsync(
+                message,
+                HttpCompletionOption.ResponseHeadersRead,
+                timeoutCts.Token).ConfigureAwait(false);
+            stopwatch.Stop();
+
+            var headers = CollectHeaders(response);
+            var maxBytes = Math.Max(0, request.MaxResponseBodyBytes);
+            var body = Array.Empty<byte>();
+            var truncated = false;
+            if (response.Content is not null && maxBytes > 0)
+            {
+                await using var stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token).ConfigureAwait(false);
+                (body, truncated) = await ReadBoundedAsync(stream, maxBytes, timeoutCts.Token).ConfigureAwait(false);
+            }
+
+            headers.TryGetValue("Content-Type", out var contentType);
+            return ProbeResult.Create(new ProbeResult
+            {
+                FinalUri = endpoint.Uri,
+                StatusCode = response.StatusCode,
+                Headers = headers,
+                Body = body,
+                ContentType = contentType,
+                Duration = stopwatch.Elapsed,
+                BodyTruncated = truncated,
+                RedirectChain = redirectChain.ToArray(),
+            });
         }
-
-        headers.TryGetValue("Content-Type", out var contentType);
-        return ProbeResult.Create(new ProbeResult
+        catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException)
         {
-            FinalUri = endpoint.Uri,
-            StatusCode = response.StatusCode,
-            Headers = headers,
-            Body = body,
-            ContentType = contentType,
-            Duration = stopwatch.Elapsed,
-            BodyTruncated = truncated,
-            RedirectChain = redirectChain.ToArray(),
-        });
+            // AutomaticDecompression throws these for malformed Content-Encoding payloads (e.g. invalid br).
+            // Map to the transport's protocol failure so callers get a defined Pien error, not a crash.
+            throw new Exceptions.HttpProtocolException("Response content decoding failed.", ex);
+        }
     }
 
     private HttpRequestMessage BuildRequestMessage(ProbeRequest request, ValidatedEndpoint endpoint)
@@ -189,18 +202,22 @@ public sealed class SafeHttpTransport : ISafeHttpTransport, IDisposable
         return headers;
     }
 
+    /// <summary>
+    /// Builds a redirect-disabled handler with ConnectCallback IP pinning and
+    /// <see cref="DecompressionPolicy.SelectForCurrentRuntime"/> AutomaticDecompression.
+    /// </summary>
     private static SocketsHttpHandler CreateHandler(ValidatedEndpoint endpoint, NetworkSafetyOptions options)
     {
         var pinned = endpoint.Addresses[0];
         return new SocketsHttpHandler
         {
             AllowAutoRedirect = false,
-            // CVE-2026-111497 / GHSA-p3jp-9v83-76w9 (upstream google/brotli GHSA-9v8h-qqgm-4m35): the native Brotli decoder in .NET runtimes
-            // below 10.0.14 / 8.0.33 has an out-of-bounds write, and Pien decodes responses from
-            // untrusted servers. Brotli stays off (no "br" in Accept-Encoding, no decoding) until
-            // CI, global.json and release builds use the patched runtime (.NET 10.0.14, SDK 10.0.403,
-            // released 2026-10-25).
-            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+            // CVE-2026-111497 / GHSA-p3jp-9v83-76w9 (upstream google/brotli GHSA-9v8h-qqgm-4m35): native Brotli
+            // in .NET below 10.0.14 has an out-of-bounds write. DecompressionPolicy enables Brotli only when
+            // the running runtime is >= 10.0.14; on older hosts keep GZip|Deflate (no "br" in Accept-Encoding,
+            // br bodies returned undecoded) and emit a one-time warning. Framework-dependent publishes may
+            // still run on an older 10.0.x runtime than the SDK pin.
+            AutomaticDecompression = DecompressionPolicy.SelectForCurrentRuntime(),
             ConnectCallback = async (context, cancellationToken) =>
             {
                 var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
