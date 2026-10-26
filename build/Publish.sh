@@ -39,10 +39,9 @@ publish_sc() {
   mkdir -p "$out"
   local log code
   log="$(mktemp)"
+  # EnablePienAnalyzers=false: ARTR.Pien.CodeAnalysis has no RID lockfile graphs,
+  # so locked-mode restore with -r hits NU1004 if the analyzer stays in the graph.
   set +e
-  # EnablePienAnalyzers=false: -r makes referenced projects (including the Roslyn
-  # analyzer) build under that RID; an arm64 analyzer DLL cannot load on an x64
-  # host compiler. Release SC publish still compiles the product for the RID.
   dotnet publish "$CLI_PROJECT" \
       -c "$CONFIGURATION" \
       -r "$rid" \
@@ -96,10 +95,10 @@ CANDIDATES=(win-x64 win-arm64 linux-x64 linux-arm64 osx-x64 osx-arm64)
 declare -A RID_RESULTS=()
 for rid in "${CANDIDATES[@]}"; do
   echo "--- RID $rid ---"
-  set +e
-  publish_sc "$rid"
-  sc_code=$?
-  set -e
+  # Do not call publish_sc under a bare `set -e` path: it re-enables set -e and
+  # returns non-zero, which would exit before the Release aborted message.
+  sc_code=0
+  publish_sc "$rid" || sc_code=$?
   if [[ "$sc_code" -eq 0 ]]; then
     RID_RESULTS["$rid"]=ok
   else

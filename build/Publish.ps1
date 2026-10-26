@@ -50,8 +50,8 @@ function Invoke-SelfContainedPublish([string]$Rid, [string]$OutDir) {
 
   $prevEap = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
-  # EnablePienAnalyzers=false: -r builds ProjectReferences under that RID; an
-  # arm64 analyzer cannot load on an x64 host compiler during cross-publish.
+  # EnablePienAnalyzers=false: CodeAnalysis has no RID lockfile graphs, so
+  # locked-mode restore with -r hits NU1004 if the analyzer stays in the graph.
   $output = & dotnet publish $cliProject `
     -c $Configuration `
     -r $Rid `

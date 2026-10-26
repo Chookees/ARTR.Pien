@@ -17,7 +17,7 @@ Roslyn analyzers adapting Holzmann’s Power of Ten rules for ARTR Pien (see `do
 | PIEN0009 | Warning | Broad exception handling is not justified |
 
 Production projects reference this assembly as an analyzer via `Directory.Build.props` when `EnablePienAnalyzers` is true.
-Analyzers are enforced in normal build and CI (`dotnet build ARTR.Pien.sln -c Release` in the `ci.yml` build-test job and the `release.yml` build step); self-contained publish sets `EnablePienAnalyzers=false` only because cross-RID analyzer DLLs cannot load on the host compiler.
+Analyzers are enforced in normal build and CI (`dotnet build ARTR.Pien.sln -c Release` in the `ci.yml` build-test job and the `release.yml` build step); self-contained publish sets `EnablePienAnalyzers=false` only because locked-mode restore with `-r` hits NU1004 when the CodeAnalysis lockfile has no RID graphs.
 
 ## Deferred diagnostics (reserved)
 
